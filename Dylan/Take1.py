@@ -25,8 +25,10 @@ class Lattice:
 		assert (verbSense in self.verbs), "The verb sense %s is not in the dataset." % (verbSense)
 		assert (nounSense in self.nouns), "The noun sense %s is not in the dataset." % (nounSense)
 		return scipy.where(self.verbs==verbSense)[0], scipy.where(self.nouns==nounSense)[0]
-
+        ## adds an edge between two senses
 	def add_edge(self, verbSense, nounSense, weight):
+                ## this function may not be necessary
+
 		## check that verb/noun senses are in the dataset
 		assert (verbSense in self.verbs), "The verb sense %s is not in the dataset." % (verbSense)
 		assert (nounSense in self.nouns), "The noun sense %s is not in the dataset." % (nounSense)
@@ -40,10 +42,10 @@ class Lattice:
 		self.weights[verbIndex][nounIndex] = weight
 		
 	## adds a verb or noun class to the existing structure
-	def add_class(self, verbOrNoun, newWeights = None):
+	def add_class(self, verb, newWeights = None):
 		## ***in***
-		## verbOrNoun: is the new class a verb or a noun?
-		## newWeights: None be default
+		## verb: is the new class a verb (or a noun)?
+		## newWeights: None is default
 		## ***actions***
 		## (should only be added if class is not already present, correct?)
 		## add either row (verb) or column (noun) to existing structure:
@@ -51,6 +53,23 @@ class Lattice:
 		##		-) add row/column to self.weights matrix, with values from newWeights (or 0s/None)
 
 		## how should we assign a "name" for the class??
+                ## will be taken care of by verb names -> multiple verb senses implementation
+
+                return add_general(verb, newWeights)
+
+        def add_general(verb, newWeights):
+            ## a more general add for both rows and columns
+            a,b = (self.weights.shape[0]+1, self.weights.shape[1]) if verb else (self.weights.shape[0], self.weights.shape[1]+1)
+            self.weights = scipy.resize(self.weights, (a,b))
+
+            a,b = (self.weights.shape[0], self.weights.shape[1]) if verb else (self.weights.shape[0], self.weights.shape[1])
+
+            if newWeights == None:
+                newWeights = scipy.ones(a)
+            if verb: self.weights[a-1,:] = newWeights
+            else:
+	        self.weights[:,b-1] = newWeights
+            return self.weights
 
 	## removes a verb or noun class from the existing structure
 	def kill_class(self, verbOrNoun, className):
