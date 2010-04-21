@@ -1,0 +1,7 @@
+
+Add projection factor output in "pruned" line, i.e. "average 3.92 projections
+	per extension".
+Add "OPTIMAL to convergence tolerance YES/NO" message at the end, depending on
+	whether the last mining iteration was exact.
+Ensure we catch all equal-scoring sequences in discriminative mining.
+
