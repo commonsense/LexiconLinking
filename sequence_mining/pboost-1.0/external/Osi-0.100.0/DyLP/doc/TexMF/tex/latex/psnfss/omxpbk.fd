@@ -1,0 +1,18 @@
+%Filename: OMXpbk.fd
+%Created by: tex pbkmath
+%Created using fontinst v1.335
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{OMXpbk.fd}
+   [1996/07/13 Fontinst v1.335 font definitions for OMX/pbk.]
+
+\DeclareFontFamily{OMX}{pbk}{}
+
+\DeclareFontShape{OMX}{pbk}{l}{n}{
+   <-> pbkl7v
+}{}
+
+\DeclareFontShape{OMX}{pbk}{m}{n}{<->ssub * pbk/l/n}{}
+
+\endinput

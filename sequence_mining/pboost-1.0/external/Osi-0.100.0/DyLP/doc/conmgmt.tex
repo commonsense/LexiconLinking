@@ -1,0 +1,146 @@
+\section{Constraint Management}
+\label{sec:ConstraintManagement}
+
+Constraint management activities can be separated into selection of the initial
+constraint set, activation of violated or bounding constraints, and
+deactivation of loose constraints.
+In general, the goal is to maintain an active constraint system which is
+a subset of the original constraint system, consisting only of
+equalities and those inequalities necessary to define an optimal extreme point.
+\dylp expects that all constraints will be equalities or $\leq$
+inequalities.
+Figure \ref{fig:ConmgmtCalls} shows the call structure for the constraint
+activation and deactivation routines.
+\begin{figure}[htbp]
+\centering
+\includegraphics{\figures/conmgmtcalls}
+\caption{Call Graph for Constraint Management Routines}\label{fig:ConmgmtCalls}
+\end{figure}
+
+During construction of the initial constraint system, any variables referenced
+in a constraint are activated along with the constraint.
+During subsequent constraint activation phases, variable activation is more
+selective.
+The logical variable for the constraint is created and used as the new basic
+variable.
+If the next simplex will be primal simplex, activation is restricted to
+the subset of referenced variables with dual infeasible (favourable)
+reduced cost.
+If the next simplex will be dual simplex, activation is restricted to
+the subset of referenced variables that are dual feasible.
+
+When a constraint is deactivated, only the slack variable for the constraint
+is deactivated.
+This minimises the work that must be performed to repair the basis.
+
+\subsection{Initial Constraint Selection}
+\label{InitialConSelect}
+
+For a warm or hot start, the initial active constraint system is completely
+determined from the basis supplied by the client.
+As noted in \secref{sec:Startup}, the client can
+set parameters which will cause constraint activation to be executed prior
+to starting simplex iterations.
+In this specific case, variable activation is not automatic and must be
+requested independently if desired.
+
+For a cold start, where no initial basis is supplied,
+the initial active constraint system will include all equalities and
+a client-specified selection of inequalities.
+See \secref{sec:ColdStart} for a more detailed description.
+
+\subsection{Activation of Constraints}
+\label{ConstraintActivation}
+
+\dylp enters the constraint activation phase 
+whenever the system is found to be primal unbounded or optimal for
+the set of active constraints and all variables (active and inactive).
+When the system is found to be optimal, \dylp calls
+\pgmid{dy_activateCons} to search the inactive constraints
+for violated constraints.
+When the system is found to be unbounded, \dylp first calls
+\pgmid{dy_activateBndCons} to search the inactive
+constraints for feasible constraints which block the direction of recession.
+If such bounding constraints exist, they are activated and
+primal phase~II simplex is resumed.
+Otherwise, \pgmid{dy_activateCons} is called to add any violated
+constraints and execution will go to primal phase~I or dual simplex as
+appropriate.
+
+Violated constraints are identified using a straightforward scan of
+the inactive constraints.
+The routine \pgmid{scanPrimConStdAct} evaluates each constraint at the
+current value of $x$ and returns a list of violated constraints.
+The routines \pgmid{dy_activateBLogPrimConList} and
+\pgmid{dy_activateBLogPrimCon} perform the activations.
+Following activations, the logical variables for the new constraints are made
+basic, the basis is refactored, and a new basic solution is calculated.
+If the call to \pgmid{dy_activateCons} requested activation of referenced
+variables, \pgmid{dy_activateBLogPrimConList} will collect a set of variable
+indices for activation.
+After the basis has been refactored, the set is passed to
+\pgmid{dy_activateVars} for activation.
+If dual simplex will be the next simplex executed, only dual-feasible variables
+are activated.
+
+In \dylp, unboundedness is detected by the primal simplex implementation;
+dual simplex is not called until primal simplex has found an initial
+optimal solution.
+When unboundedness is discovered,
+\dylp calls \pgmid{dy_activateBndCons} to search for
+bounding constraints which are feasible at the current basic solution.
+A constraint will block motion in the
+direction $\eta_j$ if $a_i \cdot \eta_j > 0$ for
+$x_j$ increasing, or $a_i \cdot \eta_j < 0$ for $x_j$ decreasing.
+This scan is performed by \pgmid{scanPrimConBndAct}.
+Once the list of constraints is returned, constraint activation and basis
+repair proceed as in the case of violated constraints, but referenced variables
+are not activated.
+
+When a constraint is activated, the set of basic variables is augmented
+with the slack variable for the constraint.
+Because the slack is basic, the value of the associated dual is zero.
+The basis will change, but the values of other active primal variables will
+remain the same.
+Since the new slack variables are not part of the PSE reference frame,
+the projected column norms associated with PSE pricing are unchanged.
+Because the objective coefficients associated with the slack variables
+are 0, the values of the preexisting dual variables and the reduced costs
+remain unchanged.
+
+\subsection{Deactivation of Constraints}
+
+Constraint deactivation is handled by \pgmid{dy_deactivateCons}.
+\dylp implements three options for constraint deactivation, `normal',
+`aggressive', and `fanatical'.
+When normal constraint deactivation is specified, \dylp will only deactivate
+inequalities which are strictly loose.
+Eligible inequalities are identified by scanning the basis for slack
+variables which are strictly within bounds.
+When aggressive constraint deactivation is specified, \dylp will
+also deactivate tight inequalities whose associated dual
+variable is zero.
+When fanatical constraint deactivation is specified, \dylp will deactivate any
+constraint (equality or inequality) whose associated dual is zero.
+The set of constraints to be deactivated is identified by the routine
+\pgmid{scanPrimConStdDeact}.
+
+Once a set of constraints has been identified for deactivation, the routines
+\pgmid{deactBLogPrimConList} and \pgmid{dy_deactBLogPrimCon} are called to
+perform the deactivations.
+The corresponding constraint is deactivated and removed from the active
+constraint system along with its associated logical variable.
+The basis is patched, if necessary, by moving the variable which is basic
+in the position of the deactivated constraint to the basis position which was
+occupied by the constraint's associated logical.
+
+As with activation of constraints, deactivation of constraints changes
+the basis and \dylp will refactor and recalculate the primal and dual
+variables.
+The dual variables do not change, nor do the reduced costs of the remaining
+variables, since the cost coefficient of a logical variable is zero.
+In general, the PSE column norms will be changed because the
+deleted logical variables may be part of the reference frame.
+\dylp opts to reset the reference frame to deal with this, rather than
+updating or recalculating the column norms.
+

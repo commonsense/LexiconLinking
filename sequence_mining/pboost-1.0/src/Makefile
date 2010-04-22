@@ -1,6 +1,8 @@
 
-CPP=g++-4.2
+CPP=g++
 
+INC_BOOST=-I/usr/local/include/boost-1_33_1
+LIB_BOOST=-lboost_program_options-1_33_1 -lboost_serialization-1_33_1 
 include Makefile.options
 
 # General prequisites:
@@ -8,14 +10,14 @@ include Makefile.options
 #    libboost-serialization-dev
 
 # 32 bit shared compilation
-CPPFLAGS=-Wall -g -O4 -fomit-frame-pointer \
+CPPFLAGS=-Wall -g -O3 -fomit-frame-pointer \
 	-funroll-loops -finline-functions -Wno-deprecated
 #CPPFLAGS=-g -ggdb -Wall -Wno-deprecated
 INCLUDE=-I. -I../external/osi-0.95.3/include -I../external/osi-0.95.3/Osi/src/OsiClp  -I../external/osi-0.95.3/Osi/src -I/usr/local/include/boost-1_33_1
-INCLUDE_PSPAN=-I. -I../external/gmm-3.0/include -I../external/osi-0.95.3/Osi/src -I../external/osi-0.95.3/Osi/src/OsiClp -L/usr/local/lib  -I/usr/local/include/boost-1_33_1
-LIBS= -L/usr/local/lib	-L../external/osi-0.95.3/lib -L../external/osi-0.95.3/Osi/lib -lboost_program_options-1_33_1 -lboost_serialization-1_33_1 -lOsiClp -lOsi -lClp -lm -lCoinUtils
-LIBS_PTEST=-L/usr/local/lib -lboost_serialization-1_33_1 -lboost_program_options-1_33_1
-LIBS_PSPAN=-L/usr/local/lib -lboost_serialization-1_33_1 -lboost_program_options-1_33_1
+INCLUDE_PSPAN=-I. -I../external/gmm-3.0/include -I../external/osi-0.95.3/Osi/src -I../external/osi-0.95.3/Osi/src/OsiClp -L/usr/local/lib $(INC_BOOST)
+LIBS= -L/usr/local/lib	-L../external/osi-0.95.3/lib -L../external/osi-0.95.3/Osi/lib $(LIB_BOOST) -lOsiClp -lOsi -lClp -lm -lCoinUtils
+LIBS_PTEST=-L/usr/local/lib $(LIB_BOOST)
+LIBS_PSPAN=-L/usr/local/lib $(LIB_BOOST)
 
 # 64 bit static compilation (cluster nodes do not have the desired libraries)
 CPP_64=g++-4.2

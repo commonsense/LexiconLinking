@@ -1,0 +1,182 @@
+
+\section{Notation}
+\label{sec:Notation}
+
+\dylp works naturally with the minimisation problem
+\begin{equation}
+\begin{split}
+\min \enspace  cx & \\
+      Ax & \leq b \\
+l \leq x & \leq u
+\end{split} \label{Eqn:BoundedPrimal}
+\end{equation}
+Add slack variables $s$ and partition $\begin{bmatrix} A & I \end{bmatrix}$
+into basic and nonbasic portions as
+\begin{equation*}
+\begin{split}
+\begin{bmatrix} B & N \end{bmatrix} =
+\left[
+\begin{array}{cc|cc}
+B^t & 0 & N^t & I^t \\
+B^l & I^l & N^l & 0
+\end{array}
+\right]
+\end{split}
+\end{equation*}
+with corresponding partitions
+\begin{math}
+\trans{\begin{bmatrix} x^B & s^B & x^N & s^N \end{bmatrix}}
+\end{math}
+for $x$, $s$, and
+\begin{math}
+\trans{\begin{bmatrix} b^t & b^l\end{bmatrix}}
+\end{math}
+for $b$.
+The objective $c$ is augmented with 0's in the columns corresponding to the
+slack variables, and partitioned as
+\begin{math}
+\begin{bmatrix} c^B & 0 & c^N & 0 \end{bmatrix}
+\end{math}.
+The basis inverse will be 
+\begin{equation*}
+B^{\,-1} = \begin{bmatrix}
+	     (B^t)^{-1} & 0 \\
+	     -B^l(B^t)^{-1} & I^l
+	    \end{bmatrix}.
+\end{equation*}
+We then have
+\begin{equation}
+\begin{split}
+\begin{bmatrix} x^B \\ s^B \end{bmatrix} & = \,
+B^{\,-1}b - B^{\,-1} N \begin{bmatrix} x^N \\ s^N \end{bmatrix} \\
+%
+& = \begin{bmatrix} (B^t)^{-1} b^t \\ b^l - B^l(B^t)^{-1} b^t \end{bmatrix} -
+    \begin{bmatrix}
+      (B^t)^{-1} N^t & (B^t)^{-1} \\
+      N^l - B^l(B^t)^{-1}N^t & -B^l(B^t)^{-1}
+    \end{bmatrix}
+    \begin{bmatrix} x^N \\ s^N \end{bmatrix}
+\end{split} \label{Eqn:PrimalBasicVars}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+z & = \begin{bmatrix} c^B & 0 \end{bmatrix}
+      \trans{\begin{bmatrix} x^B & s^B \end{bmatrix}} +
+      \begin{bmatrix} c^N & 0 \end{bmatrix}
+      \trans{\begin{bmatrix} x^N & s^N \end{bmatrix}} \\
+  & = \begin{bmatrix} c^B & 0 \end{bmatrix}B^{\,-1}b +
+      \left(
+        \begin{bmatrix} c^N & 0 \end{bmatrix} -
+        \begin{bmatrix} c^B & 0 \end{bmatrix} B^{\,-1} N
+      \right)
+      \trans{\begin{bmatrix} x^N & s^N \end{bmatrix}} \\
+  & = c^B (B^t)^{-1} b^t +
+      \begin{bmatrix} c^N - c^B (B^t)^{-1} N^t & -c^B(B^t)^{-1} \end{bmatrix}
+      \trans{\begin{bmatrix} x^N & s^N \end{bmatrix}}
+\end{split} \label{Eqn:PrimalObj}
+\end{equation}
+The quantities
+$\trans{\begin{bmatrix} x^B & s^B \end{bmatrix}} =
+\overline{b} = B^{\,-1}b$ are the values of the basic
+variables, the quantities
+$y = \begin{bmatrix} c^B & 0 \end{bmatrix}B^{\,-1}$ are the dual
+variables, and the quantities
+$\overline{c} = \left(
+		  \begin{bmatrix} c^N & 0 \end{bmatrix} -
+		  \begin{bmatrix} c^B & 0 \end{bmatrix} B^{\,-1} N
+		\right)$
+are the reduced costs.
+A row or column of $B^{\,-1}N$ (as appropriate to the context) will be
+denoted $\overline{a}_k$ (the single subscript distinguishes it from an
+individual element $\overline{a}_{ij}$).
+A row or column of $B^{\,-1}$ (as appropriate to the context) will be
+denoted $\beta_k$.
+When discussing pivot selection calculations, $\Delta_j$ will be the
+change in nonbasic variable $x_j$ or $s_j$.
+
+The dual problem is formed by first converting \eqref{Eqn:BoundedPrimal} to
+$\max\: -cx$, giving
+\begin{equation*}
+\begin{split}
+\min \enspace & yb \\
+        & y A \geq -c \\
+        & y \geq 0
+\end{split}
+\end{equation*}
+Add surplus variables $\sigma$ and partition
+$\trans{\begin{bmatrix}A & -I \end{bmatrix}}$
+into basic and nonbasic portions as
+\begin{equation*}
+\addtolength{\extrarowheight}{3pt}
+\begin{bmatrix} \mathcal{B} \\ \mathcal{N} \end{bmatrix} = 
+\left[
+\begin{array}{cc}
+0  & -I^\mathcal{B} \\
+B^t & N^t \\
+\hline
+-I^\mathcal{N} & 0 \\
+B^l & N^l
+\end{array}
+\right]
+\end{equation*}
+with corresponding partitions
+\begin{math}
+\begin{bmatrix}
+  \sigma^\mathcal{B} & y^\mathcal{B} & \sigma^\mathcal{N} & y^\mathcal{N}
+\end{bmatrix}
+\end{math}
+for $y$, $\sigma$, and
+\begin{math}
+\begin{bmatrix} c^B & c^N \end{bmatrix}
+\end{math}
+for $c$.
+The right-hand side $b$ is augmented with 0's in the rows corresponding to the
+surplus variables and partitioned as
+\begin{math}
+\trans{\begin{bmatrix} 0 & b^t & 0 & b^l \end{bmatrix}}
+\end{math}.
+The basis inverse will be 
+\begin{equation*}
+\mathcal{B}^{\,-1} =
+\begin{bmatrix}
+  (B^t)^{-1} N^t & (B^t)^{-1} \\
+  -I^\mathcal{B} & 0
+\end{bmatrix}.
+\end{equation*}
+We then have
+\begin{equation}
+\begin{split}
+\begin{bmatrix} \sigma^\mathcal{B} & y^\mathcal{B} \end{bmatrix} & =
+    (-c)\mathcal{B}^{\,-1} -
+    \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+    \mathcal{N}\mathcal{B}^{\,-1} \\
+& = \begin{bmatrix} c^N - c^B (B^t)^{-1} N^t & -c^B (B^t)^{-1} \end{bmatrix} -
+    \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+    \begin{bmatrix}
+      -(B^t)^{-1} N^t & -(B^t)^{-1} \\
+      B^l(B^t)^{-1} N^t - N^l & B^l(B^t)^{-1}
+    \end{bmatrix} \label{Eqn:DualBasicVars}
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+z & = \begin{bmatrix} \sigma^\mathcal{B} & y^\mathcal{B} \end{bmatrix}
+      \trans{\begin{bmatrix} 0 & b^t \end{bmatrix}} +
+      \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+      \trans{\begin{bmatrix} 0 & b^l \end{bmatrix}} \\
+  & = (-c)\mathcal{B}^{\,-1} b^\mathcal{B} +
+      \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+      (b^\mathcal{N} - \mathcal{N}\mathcal{B}^{\,-1} b^\mathcal{B}) \\
+  & = -c^B (B^t)^{-1} b^t +
+      \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+      \begin{bmatrix} (B^t)^{-1} b^t \\ b^l - B^l(B^t)^{-1} b^t \end{bmatrix}
+\end{split} \label{Eqn:DualObj}
+\end{equation}
+When discussing pivot selection calculations, $\delta_j$ will be the
+change in nonbasic dual variable $y_j$ or $\sigma_j$.
+
+Let $e_k \in R^d$ be a row or column vector of appropriate
+dimension (as determined by the context), with a 1 in
+position $k$ and 0's in all other positions.

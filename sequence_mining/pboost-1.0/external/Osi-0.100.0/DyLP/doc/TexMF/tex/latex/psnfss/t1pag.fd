@@ -1,0 +1,56 @@
+%Filename: T1pag.fd
+%Created by: tex 12466avantgar
+%Created using fontinst v1.335
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{T1pag.fd}
+   [1995/08/11 Fontinst v1.335 font definitions for T1/pag.]
+
+\DeclareFontFamily{T1}{pag}{}
+
+\DeclareFontShape{T1}{pag}{db}{n}{
+   <-> s * [.9] pagd8t
+}{}
+
+\DeclareFontShape{T1}{pag}{db}{sc}{
+   <-> s * [.9] pagdc8t
+}{}
+
+\DeclareFontShape{T1}{pag}{db}{sl}{
+   <-> s * [.9] pagdo8t
+}{}
+
+\DeclareFontShape{T1}{pag}{m}{n}{
+   <-> s * [.9] pagk8t
+}{}
+
+\DeclareFontShape{T1}{pag}{m}{sc}{
+   <-> s * [.9] pagkc8t
+}{}
+
+\DeclareFontShape{T1}{pag}{m}{sl}{
+   <-> s * [.9] pagko8t
+}{}
+
+\DeclareFontShape{T1}{pag}{b}{n}{<->ssub * pag/db/n}{}
+\DeclareFontShape{T1}{pag}{bx}{n}{<->ssub * pag/b/n}{}
+\DeclareFontShape{T1}{pag}{b}{sc}{<->ssub * pag/db/sc}{}
+\DeclareFontShape{T1}{pag}{bx}{sc}{<->ssub * pag/b/sc}{}
+\DeclareFontShape{T1}{pag}{b}{sl}{<->ssub * pag/db/sl}{}
+\DeclareFontShape{T1}{pag}{bx}{sl}{<->ssub * pag/b/sl}{}
+\DeclareFontShape{T1}{pag}{db}{it}{<->ssub * pag/db/sl}{}
+\DeclareFontShape{T1}{pag}{b}{it}{<->ssub * pag/db/it}{}
+\DeclareFontShape{T1}{pag}{bx}{it}{<->ssub * pag/b/it}{}
+\DeclareFontShape{T1}{pag}{db}{ui}{<->sub * pag/db/it}{}
+\DeclareFontShape{T1}{pag}{b}{ui}{<->ssub * pag/db/ui}{}
+\DeclareFontShape{T1}{pag}{bx}{ui}{<->ssub * pag/b/ui}{}
+\DeclareFontShape{T1}{pag}{l}{n}{<->ssub * pag/m/n}{}
+\DeclareFontShape{T1}{pag}{l}{sc}{<->ssub * pag/m/sc}{}
+\DeclareFontShape{T1}{pag}{l}{sl}{<->ssub * pag/m/sl}{}
+\DeclareFontShape{T1}{pag}{m}{it}{<->ssub * pag/m/sl}{}
+\DeclareFontShape{T1}{pag}{l}{it}{<->ssub * pag/m/it}{}
+\DeclareFontShape{T1}{pag}{m}{ui}{<->sub * pag/m/it}{}
+\DeclareFontShape{T1}{pag}{l}{ui}{<->ssub * pag/m/ui}{}
+
+\endinput

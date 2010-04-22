@@ -1,0 +1,1502 @@
+\section{\dylp Interface}
+\label{sec:DylpInterface}
+
+This section describes the native interface for \dylp.
+In addition to the main routine, \pgmid{dylp}, various pricing, printing, and
+utility routines are provided.
+These routines, and the major interface structures, are described briefly
+in this section.
+For additional details on how to use \dylp, consult the comments
+in the source, particularly in \coderef{dylp.h}{} and \coderef{dy_setup.c}{},
+and the example drivers supplied in the distribution.
+
+\dylp's native interface is peculiar to \dylp and a bit low-level in places.
+Many individuals will find it more convenient to use \dylp as an
+embedded component within the software infrastructure provided by
+the \coin project \cite{COIN}.
+For details of the \textsc{Coin osi} layer for \dylp, OsiDylp, please consult
+the \textsc{Coin}
+documentation.
+An added advantage of this approach is that the \textsc{Coin osi} API provides
+a solver-independent interface.
+The underlying solver can be easily changed because the \textsc{osi} layer
+insulates
+the client from the details of the solver's native interface.
+
+The \dylp distribution provides a simple C driver program using \dylp's
+native interface in the file \coderef{osi_dylp.c}{}.
+The command `\pgmid{osi_dylp -h}' will print a message describing the
+available command line options.
+
+\dylp assumes that the constraint system passed to it as a parameter
+\textit{does not} contain logical variables (\ie, slacks and artificials).
+On occasion, it must return values for logical variables; in such cases,
+it will use the negative of the index of the associated constraint.
+
+\subsection{Simplex Solver}
+\label{SimplexSolver}
+
+\dylp is called as
+
+\begin{subrdoc}
+\item
+\subrhdr{lpret_enum dylp}
+	{lpprob_struct *orig_lp, lpopts_struct *orig_opts,
+         lptols_struct *orig_tols, \\ lpstats_struct *orig_stats}
+
+The \pgmid{orig_lp} structure (\secref{LPProbSpec}) specifies the constraint
+system, control options, and (optionally) an initial basis and status vector
+and an initial active variable set.
+It is used to return the final status, primal and dual variable values,
+basis, and status vector, and (optionally) the active variables.
+
+The \pgmid{orig_opts} structure (\secref{DylpOptions}) specifies option
+settings to control \dylp's actions.
+The \pgmid{orig_tols} structure (\secref{DylpTolerances}) specifies
+numeric tolerances and related control information.
+
+The optional structure \pgmid{orig_stats} (\secref{DylpStatistics}) can
+be used (in conjunction with
+conditionally compiled code) to return detailed statistics about \dylp's
+actions.
+\end{subrdoc}
+
+\subsection{Parameter Routines}
+\label{sec:ParameterRoutines}
+
+The normal sequence to establish parameter values for \dylp is as follows:
+\begin{enumerate}
+  \item
+  The client calls \pgmid{dy_defaults} to allocate option and tolerance
+  structures and populate them with default values.
+  The client can then adjust the parameters as desired.
+
+  \item
+  The client somehow establishes the original copy of the constraint system.
+  Typically, this will be a call to a constraint system generator\footnote{%
+  Consult the \pgmid{consys} documentation for information on how to use
+  the routines in the \pgmid{consys} package to build a constraint system
+  from scratch.}, or a call
+  to a routine which will read an MPS file.
+
+  \item
+  The client calls \pgmid{dy_checkdefaults} to
+  to set parameter values which are calculated based on
+  properties of the constraint system, and to ensure that all parameters
+  are within acceptable bounds.
+\end{enumerate}
+
+
+\begin{subrdoc}
+  \item
+  \subrhdr{void dy_defaults}%
+	  {lpopts_struct **opts, lptols_struct **tols}
+  
+  This routine will allocate an options structure \pgmid{opts} and a
+  tolerance structure \pgmid{tols} and populate them with the standard
+  default values for \dylp.
+  Note that default values for some parameters are calculated
+  in \pgmid{dy_checkdefaults}
+  based on the size of the constraint system.
+
+  \item
+  \subrhdr{void dy_checkdefaults}%
+	  {consys_struct *sys, lpopts_struct *opts, lptols_struct *tols}
+  
+  This routine checks limits on parameter values and calculates
+  values which depend on the size of the constraint system.
+  User-supplied values are \textit{not} overridden unless they are outside
+  of \dylp's bounds for the parameter.
+
+  \item
+  \subrhdr{void dy_setprintopts}%
+	  {int lvl, lpopts_struct *opts}
+
+  This routine is provided purely for convenience; it will set all of
+  \dylp's print levels based on the single value supplied for \pgmid{lvl}.
+  Roughly, $\pgmid{lvl} = 0$ suppresses all output,
+  $\pgmid{lvl} = 1$ establishes the default print levels, which allow
+  messages about extraordinary events, and
+  $\pgmid{lvl} \geq 2$ provides increasing amounts of information.
+  Consult the code for details.
+\end{subrdoc}
+
+\subsection{Basis Package Initialisation}
+\label{sec:GLPKBasisInit}
+
+The \glpk basis package used in \dylp maintains static data structures that
+must be initialised before use and freed after use.
+For efficiency, it is useful to postpone initialisation until the size of the
+constraint system is known and can be used to estimate the size of the basis
+package's data structures, but \dylp will expand the basis structures if it
+detects that the constraint system has grown too large for the allocated
+capacity.
+Initialisation must occur before the first call to \pgmid{dylp}.
+The basis structures should be freed when they are no longer needed.
+
+\begin{subrdoc}
+  \item
+  \subrhdr{void dy_initbasis}%
+	  {int concnt, int factor_freq, double zero_tol}
+
+  \pgmid{dy_initbasis} initialises the data structures used by the \glpk basis
+  maintenance package.
+  \pgmid{concnt} specifies the maximum allowable number of rows (constraints).
+  \pgmid{factor_freq} is the maximum number of basis updates which can occur
+  between each (re)factorisation of the basis.
+  A conservative value will be a bit larger than the regular refactorisation
+  interval; for \dylp, $\pgmid{lpopts.factor}+5$.
+  The final parameter, \pgmid{zero_tol}, can be used to override \glpk's
+  default zero tolerance if it is set to any value other than zero.
+  Be sure you understand the ramifications of overriding the default.
+
+  The routine sets several other parameters important to pivoting.
+  Interested readers should consult the comments in the code
+  (\coderef{dy_basis.c}{dy_initbasis}).
+
+  \item
+  \subrhdr{void dy_freebasis}{void}
+
+  This routine will free the data structures allocated by the call to
+  \pgmid{dy_initbasis}.
+\end{subrdoc}
+
+\subsection{Information and Error Messages}
+\label{sec:IOandErrorMsgs}
+
+\dylp uses private library packages for information and error
+messages\footnote{%
+This usage is historical, rooted in an ancient era when i/o was still a
+roll-your-own enterprise that differed dramatically from one operating system
+and programming environment to the next.}.
+The most visible value-added service provided by the libraries is
+integration of file and terminal output.
+Routines which generate output accept parameters to specify whether the
+output generated by a call should be sent to a file, to the terminal, both,
+or neither.
+The library packages must be initialised during startup.
+A brief explanation is provided here.
+
+\subheading[l]{Information Messages}
+
+The I/O library provides a convenient means to generate information messages.
+Information messages may use any of the standard C conversion
+specifications; the
+underlying print engine for the current implementation is \pgmid{vfprintf}.
+In addition to integrated file and terminal i/o, the library manages open file
+descriptors and coordinates activity with the error message library.
+See the code for examples of usage of the routines used to generate information
+messages (\pgmid{outchr}, \pgmid{outfmt}, and \pgmid{outfxd}).
+The simple driver in \coderef{osi_dylp.c}{} contains a fragment of code which
+uses the \pgmid{chgerrlog} routine to merge information and error messages in a
+single log file.
+
+Initialisation and shutdown of the error message package is accomplished with
+the routines \pgmid{ioinit} and \pgmid{ioterm}.
+\begin{subrdoc}
+  \item
+  \subrhdr{bool ioinit}{void}
+
+  Initialises internal data structures.
+
+  \item
+  \subrhdr{void ioterm}{void}
+
+  Cleans up and shuts down the i/o package.
+  Note that \pgmid{ioterm} \textit{does not} close open streams.
+  It is assumed that the client will close open streams as appropriate, and
+  that remaining streams can be left open until closed by the operating system
+  at program termination.
+\end{subrdoc}
+
+\subheading[l]{Error Messages}
+
+The error message library provides a convenient means to generate warning and
+error messages.
+Error messages may use any of the standard C conversion specifications; the
+underlying print engine for the current implementation is \pgmid{vfprintf}.
+The text of error messages reside in a file
+(\coderef{bonsaierrs.txt}{} in the \dylp distribution).
+Error messages are printed using the routines \pgmid{warn} and \pgmid{errmsg}.
+In calls to these routines, the error message is specified by a number.
+If an error message file cannot be located, a generic error message giving the
+error number will be produced.
+See the code for examples of usage of the routines used to generate
+warning (\pgmid{warn}) and error (\pgmid{errmsg}) messages.
+
+Initialisation and shutdown of the error message package is accomplished with
+the routines \pgmid{errinit} and \pgmid{errterm}.
+\begin{subrdoc}
+  \item
+  \subrhdr{void errinit}%
+	  {const char *emsgpath, const char *elogpath, bool errecho)}
+
+  The parameter \pgmid{emsgpath} specifies the file containing the error
+  messages.
+  The parameter \pgmid{elogpath} specifies a file name to be used to log
+  error messages; if null, error messages are not logged.
+  The parameter \pgmid{errecho} should be set to true if error messages
+  should be echoed to \pgmid{stderr}, false otherwise.
+
+  \item
+  \subrhdr{void errterm}{void}
+
+  Cleans up and shuts down the error message package.
+  In keeping with the behaviour of \pgmid{ioterm}, it is left to the
+  client or operating system to close any error log file.
+\end{subrdoc}
+
+On startup, the error message package should be initialised first, followed by
+the i/o package.
+At termination, the i/o package should be shut down first.
+
+\subsection{Summary of \dylp Startup and Shutdown}
+
+Pulling together the information from the previous sections, the sequence of
+actions required to use \dylp is listed below.
+\begin{enumerate}
+  \item
+  Initialise the error message and i/o packages.
+  Open log files for information and error messages (optional).
+
+  \item
+  Establish default parameter structures.
+  Open and parse a file of \dylp option specifications (optional).
+
+  \item
+  Create a constraint system using a constraint generator or by reading an
+  input file.
+  Adjust options and tolerances to match the constraint system.
+  At some point between creating the constraint system and calling
+  \pgmid{dylp}, convert any `$\geq$' constraints to other forms.
+
+  \item
+  Initialise the basis package.
+
+  \item
+  Construct parameter structures and call \pgmid{dylp}.
+
+  \item
+  Process the answer, restoring `$\geq$' constraints and adjusting the answer
+  appropriately, if the application demands it.
+
+  \item
+  Free data structures.
+  This may require an additional call to \pgmid{dylp}, if the parameters
+  given in the previous call instructed \dylp to retain internal data
+  structures for efficient reoptimisation.
+  It will certainly require calls to \pgmid{dy_freebasis},
+  \pgmid{dy_freesoln}, and \pgmid{consys_free}.
+
+  \item
+  Close files and shut down the i/o and error message packages.
+\end{enumerate}
+Consult the sample drivers provided with \dylp for example implementations.
+
+\subsection{Pricing Routines}
+\label{PricingRoutines}
+
+\dylp provides two additional routines which are useful in a mixed-integer
+linear programming environment.
+\pgmid{dy_pricenbvars} will calculate the reduced cost for nonbasic variables
+and \pgmid{dy_pricedualpiv} will calculate the cost of a dual pivot
+(a generalised penalty calculation).
+
+\begin{subrdoc}
+  \item
+  \subrhdr{bool dy_pricenbvars}%
+	  {lpprob_struct *orig_lp, flags priceme, \\
+	   double **p_ocbar, int *p_nbcnt, int **p_nbvars}
+  
+  This routine calculates the reduced cost of nonbasic variables, tapping
+  the \dylp data structures for active variables and calculating the reduced
+  cost as needed for inactive variables.
+  \pgmid{priceme} provides limited additional control by allowing the client
+  to specify the status of the nonbasic variables that should be priced.
+  For example, to price all variables that are nonbasic at their upper or
+  lower bound,
+  \pgmid{priceme} should be set to \pgmid{vstatNBUB|vstatNBLB}.
+  Other nonbasic variables (fixed, free, or superbasic) will not be priced.
+  (See the section on status codes in \coderef{dylp.h} for additional
+  information.)
+  The routine returns a compact list of \pgmid{p_nbcnt} indices of priced
+  variables in \pgmid{p_nbvars}, with the corresponding reduced costs in
+  \pgmid{p_ocbar}.
+  The indices returned in \pgmid{p_nbvars} are the indices used in the original
+  constraint system, which does not contain logical variables.
+  Where nonbasic logical variables are present in the active system, they are
+  identified in \pgmid{p_nbvars} by the negative of the index of the
+  associated constraint.
+  In particular, the values returned are appropriate for use as
+  the \pgmid{nbcnt},
+  \pgmid{nbvars}, and \pgmid{cbar} parameters to \pgmid{dy_pricedualpiv}.
+
+  \item
+  \subrhdr{bool dy_pricedualpiv}%
+	  {lpprob_struct *orig_lp, int oxindx,
+	   double nubi, double xi, double nlbi, \\
+	   int nbcnt, int *nbvars,
+	   double *cbar, double *p_upeni, double *p_dpeni}
+  
+  This routine calculates the cost of the first dual pivot associated with
+  forcing the value of the basic variable $x_i$ 
+  down to a new upper bound $u_i$ (a down penalty) or up to a new
+  lower bound $l_i$ (an up penalty).
+  
+  The up penalty is
+  $\displaystyle \mathit{upen}_i = \min_k \left\lgroup -(l_i - x_i)
+		\frac{\overline{c}_k}{\overline{a}_{ik}} \right\rgroup$
+  for $\{k \in N \mid \overline{a}_{ik} < 0 \wedge x_k < u_k \vee
+		   \overline{a}_{ik} > 0 \wedge x_k > l_k\}$.
+
+  The down penalty is
+  $\displaystyle \mathit{dpen}_i = \min_k  \left\lgroup -(u_i - x_i)
+		\frac{\overline{c}_k}{\overline{a}_{ik}}\right\rgroup$
+  for $\{k \in N \mid \overline{a}_{ik} > 0 \wedge x_k < u_k \vee
+		   \overline{a}_{ik} < 0 \wedge x_k > l_k\}$.
+
+  To perform the standard penalty calculation for forcing a basic variable to
+  an integral value, the new lower bound would be $\ceil{x_i}$
+  and the new upper bound would be $\floor{x_i}$.
+  The basic variable $x_i$ can be an architectural or a logical variable.
+  The routine is capable of pricing a pivot involving the logical variable
+  for a constraint that is not currently active.
+
+  \pgmid{oxindx} specifies the basic variable to be priced (a logical is
+  specified as the negative of the index of the associated constraint).
+  \pgmid{xi} is the current value of $x_i$ in the optimal solution to the
+  LP.
+  (In the case of the logical for an inactive constraint, the value is obtained
+  by evaluating the constraint at the current solution.)
+  \pgmid{nubi} is the new upper bound $u_i$, and \pgmid{nlbi} is the new
+  lower bound $l_i$.
+  It should be true that $\pgmid{nubi} \leq \pgmid{xi} \leq \pgmid{nlbi}$.
+  \pgmid{nbcnt}, \pgmid{nbvars}, and \pgmid{cbar} are as described for
+  \pgmid{dy_pricenbvars}.
+  The up and down penalties will be returned in \pgmid{p_upeni} and
+  \pgmid{p_dpeni}, respectively.
+
+\end{subrdoc}
+
+\subsection{Print Routines}
+\label{PrintRoutines}
+
+There are three routines to supply strings for \dylp status, phase, and return
+codes, a routine to print the compact solution returned by \pgmid{dylp},
+and a routine to print the contents of the statistics structure.
+
+\begin{subrdoc}
+  \item
+  \subrhdr{dy_dumpcompact}%
+	  {ioid chn, bool echo, lpprob_struct *soln,  bool nbzeros}
+
+  This routine prints the solution returned by \pgmid{dylp} in \pgmid{soln}
+  using a human-readable format.
+  Output is directed to the channel specified by \pgmid{chn}, and echoed to the
+  terminal if \pgmid{echo} is true.
+  Normally, nothing is printed for nonbasic variables with a value of zero;
+  set \pgmid{nbzeros} to true to force them to be printed.
+
+  \item
+  \subrhdr{dy_dumpstats}%
+	  {ioid chn, bool echo, lpstats_struct *lpstats,
+	   consys_struct *orig_sys}
+
+  This routine prints the contents of the \pgmid{lpstats} structure in a
+  human-readable format.
+  \pgmid{chn} and \pgmid{echo} are as for \pgmid{dy_dumpcompact}.
+  \pgmid{orig_sys} should be the same constraint system referenced in the
+  \pgmid{orig_lp} parameter to \pgmid{dylp}
+
+  \item
+  \subrhdr{dy_prtlpret}{lpret_enum lpret}
+
+  Returns a pointer to a string for the return code
+  specified in \pgmid{lpret}.
+
+  \item
+  \subrhdr{dy_prtlpphase}{dyphase_enum phase, bool abbrv}
+
+  Returns a pointer to a string for the return code
+  specified in \pgmid{phase}.
+  If \pgmid{abbrv} is true, this will be a two-character abbreviation.
+
+  \item
+  \subrhdr{dy_prtvstat}{flags status}
+
+  Returns a pointer to a static buffer containing a string representation
+  of the status flags specified in \pgmid{status}.
+  The buffer is overwritten at each call.
+\end{subrdoc}
+
+\subsection{Utility Routines}
+\label{UtilityRoutines}
+
+An eclectic trio of additional interface routines.
+
+\begin{subrdoc}
+  \item
+  \subrhdr{bool dy_dupbasis}%
+	  {int dst_basissze, basis_struct **p_dst_basis,
+	   basis_struct *src_basis, \\ int dst_statussze,
+	   flags **p_dst_status, int src_statuslen, flags *src_status}
+
+  This routine will duplicate the basis and status arrays.
+  Data structures will be allocated as required if they are not supplied as
+  parameters.
+
+  \item
+  \subrhdr{bool dy_expandxopt}%
+	  {lpprob_struct *lp, double **p_xopt}
+
+  This routine will expand the compact form of the solution in \pgmid{lp}
+  into a single vector \pgmid{p_xopt}.
+  The vector will be allocated if one is not supplied as a parameter.
+
+  \item
+  \subrhdr{dy_freesoln}%
+	  {lpprob_struct *lpprob}
+
+  This routine will free the data structures used to hold the LP solution,
+  including data structures for the basis, status vector, primal and dual
+  variable values, and the active variables vector.
+\end{subrdoc}
+
+
+\subsection{The LP Problem Specification}
+\label{LPProbSpec}
+
+The structure \pgmid{lpprob_struct *orig_lp} is used to define the LP
+problem to \dylp and to return the answer to the client.
+It holds pointers to the constraint system, an active
+variable vector, a basis vector, a status vector, and vectors
+for the primal and dual variables, as well as fields for information and
+control.
+Each field is discussed below; for precise details, the reader should consult
+the file \coderef{dylp.h}{}.
+
+\begin{codedoc}
+  \item\varhdr{actvars}
+  A vector used to specify and/or return the set of active variables.
+  The vector supplied as an input parameter will be overwritten on output.
+  \begin{description}[\textbf{(o)}]
+    \item[\textbf{(i)}]
+    For a warm start, an initial set of active variables can be specified.
+    This information will be used only if the \pgmid{lpctlACTVARSIN} flag
+    is set in the \pgmid{ctlopts} field.
+    For a cold or hot start, a vector can be provided to return the
+    final set of active variables.
+
+    \item[\textbf{(o)}]
+    The final set of active variables.
+    If no vector was supplied as an input parameter, \dylp will allocate
+    one on output.
+    Active variable information is returned only if the \pgmid{lpctlACTVARSOUT}
+    flag is set when \dylp is called.
+    Valid information is returned only if an optimal solution is found.
+    If valid information is not returned, the \pgmid{lpctlACTVARSOUT} flag
+    will be reset.
+  \end{description}
+
+  \item\varhdr{basis}
+  A data structure for the LP basis.
+  Because the set of active constraints at optimum will not, in general,
+  include all constraints, the basis vector specifies the constraint and
+  the primal variable in each basis position.
+  \begin{description}[\textbf{(o)}]
+    \item[\textbf{(i)}]
+    For a warm start, an initial basis must be provided.
+    For a cold or hot start, a structure can be provided to return the
+    final basis.
+
+    \item[\textbf{(o)}]
+    The final basis.
+    If no vector was supplied as an input parameter, \dylp will allocate
+    one on output.
+  \end{description}
+
+  \item\varhdr{colsze}
+  The allocated column capacity of the data structure.
+  The \pgmid{status} and \pgmid{actvars} data structures,
+  if provided by the client, must be capable of holding this many entries.
+  If \pgmid{colsze} is insufficient to return the answer, \dylp will
+  reallocate the data structures.
+
+  \item\varhdr{consys}
+  The constraint system, in the format described for the \consys constraint
+  system subroutine library \cite{Haf98b}.
+
+  \item\varhdr{ctlopts}
+  A vector of flags used to specify optional actions and status.
+  The current set of flags can be used to control allocation and deallocation
+  of internal \dylp data structures
+  (\pgmid{lpctlDYVALID}, \pgmid{lpctlNOFREE}, \pgmid{lpctlONLYFREE}),
+  specify the presence of changes to the problem bounds
+  (\pgmid{lpctlUBNDCHG}, \pgmid{lpctlLBNDCHG}, \pgmid{lpctlRHSCHG})
+  and objective (\pgmid{lpctlOBJCHG}),
+  specify initial variable and/or constraint activation
+  (\pgmid{lpctlINITACTVAR}, \pgmid{lpctlINITACTCON}),
+  and specify the exchange of active variable information
+  (\pgmid{lpctlACTVARSIN}, \pgmid{lpctlACTVARSOUT}).
+
+  \item\varhdr{iters}
+  The total number of simplex iterations.
+
+  \item\varhdr{lpret}
+  The return code from the simplex routine.
+  
+  If no errors occur, the code should be one of \pgmid{lpOPTIMAL} (optimal),
+  \pgmid{lpINFEAS} (primal infeasible), or \pgmid{lpUNBOUNDED}
+  (primal unbounded).
+
+  Error returns include
+  \pgmid{lpPUNT} (nonbasic variables exist with favourable reduced costs, but
+  they cannot be pivoted due to unsuitable pivot coefficients),
+  \pgmid{lpLOSTFEAS} (primal feasibility has been lost and \dylp has
+  exceeded its limit on attempts to regain feasibility),
+  \pgmid{lpSTALLED} (the limit on pivots without improvement in the objective
+  has been exceeded, due to cycling or stalling),
+  \pgmid{lpITERLIM} (a limit on pivots per phase or total pivots has been
+  exceeded),
+  \pgmid{lpACCCHK} (a numerical accuracy check has occurred),
+  \pgmid{lpNOSPACE} (the \glpk basis routines could not acquire sufficient
+  space to maintain the basis inverse),
+  \pgmid{lpFATAL} (an unspecified fatal error has occurred), and
+  \pgmid{lpINV} (\dylp aborted due to internal confusion).
+
+  \item\varhdr{obj}
+  For an optimal result, the value of the objective function.
+  For an infeasible result, the total primal infeasibility.
+  For an unbounded result, the index of the unbounded variable, negated
+  if the variable can decrease without bound, positive if it can increase
+  without bound.
+  For any other return status, this field is undefined.
+
+  \item\varhdr{phase}
+  \begin{description}[\textbf{(o)}]
+    \item[\textbf{(i)}]
+    If the phase is set to \pgmid{dyDONE}, \dylp will assume that the only
+    purpose of the call is to free internal data structures.
+    Other values are ignored.
+  
+    \item[\textbf{(o)}]
+    The termination phase of the dynamic simplex algorithm; should be
+    \pgmid{dyDONE} unless an error has occurred, in which case it'll be
+    \pgmid{dyINV}.
+  \end{description}
+
+\item\varhdr{rowsze}
+  The allocated row capacity of the data structure.
+  The \pgmid{basis}, \pgmid{x}, and \pgmid{y} data structures, if provided by
+  the client, must be capable of holding this many entries.
+  If \pgmid{rowsze} is insufficient to return the answer, \dylp will
+  reallocate the data structures.
+
+\item\varhdr{status}
+  A data structure to hold the status of variables.
+  For nonbasic variables, an entry is a \dylp status code
+  (\pgmid{vstatNBFX}, \pgmid{vstatNBUB}, \pgmid{vstatNBLB}, or
+   \pgmid{vstatNBFR}).
+  For basic variables, an entry is the negative of the basis position.
+  \begin{description}[\textbf{(o)}]
+    \item[\textbf{(i)}]
+    For a warm start, an initial status must be provided.
+    For a cold or hot start, a structure can be provided to return the
+    final status.
+
+    \item[\textbf{(o)}]
+    The final status vector.
+    The value of nonbasic primal variables is returned through this
+    vector.
+    If no vector was supplied as an input parameter, \dylp will allocate
+    one on output.
+  \end{description}
+
+  \item\varhdr{x} A data structure to hold the values of the basic primal
+  variables.
+  \begin{description}[\textbf{(o)}]
+    \item[\textbf{(i)}]
+    A structure can be provided to return the final values.
+
+    \item[\textbf{(o)}]
+    The values of the basic primal variables, indexed by basis position.
+    If no vector was supplied as an input parameter, \dylp will allocate
+    one on output.
+  \end{description}
+
+  \item\varhdr{y} A data structure to hold the values of the dual variables.
+  \begin{description}[\textbf{(o)}]
+    \item[\textbf{(i)}]
+    A structure can be provided to return the final values.
+
+    \item[\textbf{(o)}]
+    The values of the dual variables, indexed by basis position.
+    If no vector was supplied as an input parameter, \dylp will allocate
+    one on output.
+  \end{description}
+\end{codedoc}
+
+
+\subsection{\dylp Options}
+\label{DylpOptions}
+
+\dylp is intended to be a flexible testbed, and as such has a large number of
+options.
+Many, in fact, have argued that it has entirely too many options.
+The author offers two observations in his own defense:
+\begin{itemize}
+  \item
+  All of them, at some point, were useful to him, and
+  
+  \item
+  if you're not interested, ignore them all and
+  let \dylp choose what it thinks are reasonable values.
+\end{itemize}
+If you look through the code, you may notice a few options that aren't
+documented here.
+By and large, this is because the best choice is clear and choices
+other than the current default give uniformly poor performance.
+
+Options are held internally in a \pgmid{lpopts_struct} structure.
+Each field is described briefly below, including default values.
+The reader is encouraged to consult \coderef{dylp.h}{} for details, and
+\coderef{dy_setup.c}{} to confirm that default values have not changed since
+this documentation was written.
+
+Most options can be set using commands read from an options file.
+This file is parsed by a simple command interpreter (contained
+in \coderef{cmdint.c}{}) and support routines in \coderef{dy_setup.c}{} and
+in the i/o library (\vid \secref{sec:IOandErrorMsgs}).
+If your application has some other way to acquire options from the user,
+all that's really necessary is a way to create and load
+a \pgmid{lpopts_struct} to pass as a parameter to \pgmid{dylp}.
+As described in \secref{sec:ParameterRoutines}, the routines
+\pgmid{dy_defaults} and \pgmid{dy_checkdefaults} will, respectively, initialise
+a \pgmid{lpopts_struct} with default values and adjust those values to match
+the constraint system.
+
+In the individual option descriptions which follow, the first line provides
+the syntax expected by the simple command interpreter mentioned above.
+information about acceptable values.
+Where applicable, for simple numeric parameters, the next line gives
+the lower bound, default value, and upper bound for the option in the
+notation
+$(\text{lower bound}) \leq (\text{default value}) \leq
+ (\text{upper bound})$.
+The remainder of the entry describes the action of the option.
+
+\begin{codedoc}
+  \item\Varhdr{active}{cons, vars}
+
+  \bgroup \raggedright
+  \kw{lpcontrol active}
+    \bnflist[\raise2pt\hbox{\kw{,}}]{\nt{size-spec}} \kw{;} \\
+  \nt{size-spec} \bnfeq
+    \kw{variables} \te{float} | \kw{constraints} \te{float}
+  \egroup
+
+  $0.0 \leq .25 \leq 1.0$ for both
+
+  The values \pgmid{active.vars} and \pgmid{active.cons} specify the fraction
+  of variables and constraints, respectively, which are expected to be active
+  at any one time.
+  The initial allocated capacity of the active constraint system data structure
+  will be the specified fraction of the number of variables and constraints
+  in the constraint system passed to \pgmid{dylp}.
+  They do not represent limits --- the constraint system will be expanded as
+  required.
+  They are exposed for efficiency in the event that the client can provide
+  a better estimate for the expected size of the active constraint system.
+
+  Note that specifying $\pgmid{active.vars} = 1.0$ and
+  $\pgmid{active.cons} = 1.0$ is \textit{not} the same as specifying
+  that \dylp use the full constraint system (\cf \pgmid{fullsys}).
+  The data structure for the active constraint system will be created with
+  the capacity to hold the full constraint system, but constraint and variable
+  activation and deactivation will proceed as usual.
+
+
+  \item\varhdr{addvar}
+  \kw{lpcontrol actvarlim} \te{integer} \kw{;}
+
+  Limits the maximum number of variables which can be activated in any
+  one execution of the variable activation phase.
+  A value of 0 (the default) means that no limit is enforced.
+
+  \item\varhdr{check}
+  \kw{lpcontrol check} \te{integer} \kw{;}
+
+  $1 \leq \pgmid{factor}/2 \leq \infty$
+
+  The nominal interval between accuracy checks, expressed in terms of the
+  number of pivots which actually change the basis.
+
+  Accuracy checks attempt to detect the accumulation of numerical inaccuracy,
+  and \dylp will perform a check earlier if it suspects numerical problems.
+  While there's no enforced upper limit on the number of pivots between
+  accuracy checks, in practice an accuracy check is performed each time the
+  basis is factored during simplex phases.
+
+  \item\varhdr{coldvars}
+  \kw{lpcontrol coldvars} \te{integer} \kw{;}
+
+  $0 \leq 5000 \leq 100000$.
+
+  When the number of active variables in the constraint system on a cold start
+  exceeds \pgmid{coldvars}, and the client has not requested that \dylp work
+  with the full constraint system, \dylp will attempt to deactivate
+  variables before beginning simplex iterations.
+
+  The upper limit is soft; \dylp will issue a warning if a higher value is
+  requested, but will not enforce the limit.
+
+  \item\varhdr{con}{actlvl, actlim, deactlvl}
+  \begin{itemize}
+    \item[\pgmid{con.actlvl}]
+    \kw{lpcontrol actconlvl} \te{integer} \kw{;}
+
+    Specifies the constraint activation strategy.
+    There are two levels:
+    \begin{description}
+      \item[0 (strict)] Activate only constraints which are strictly
+	violated.
+
+      \item[1 (tight)] Activate constraints which are tight or strictly
+	violated.
+    \end{description}
+
+    \item[\pgmid{con.actlim}]
+    \kw{lpcontrol actconlim} \te{integer} \kw{;}
+
+    Limits the maximum number of constraints which can be activated in any
+    one execution of the constraint activation phase.
+    A value of 0 (the default) means that no limit is enforced.
+
+    \item[\pgmid{con.deactlvl}]
+    \kw{lpcontrol deactconlvl}
+	[\kw{normal}|\kw{aggressive}|\kw{fanatic}] \kw{;}
+
+    Specifies the constraint deactivation strategy.
+    There are three levels:
+    \begin{description}
+      \item[0 (\kw{normal})] Deactivate only inequalities which are strictly
+	loose (\ie, the associated slack is basic and not at bound).
+
+      \item[1 (\kw{aggressive})] (default) Deactivate loose inequalities and
+	tight inequalities whose associated dual variable is zero.
+
+      \item[2 (\kw{fanatic})] Deactivate loose inequalities and any
+	tight constraint (inequality or equality) whose associated dual
+	variable is zero.
+    \end{description}
+
+  \end{itemize}
+
+  \item\varhdr{copyorigsys}
+  \kw{lpcontrol forcecopy} \te{boolean} \kw{;}
+
+  If set to true, \dylp will always make a local copy of the original system.
+  By default, a local copy is made only when necessary.
+
+  \dylp needs access to a copy of the original constraint system in order to
+  scan it for constraints or variables that should be added.
+  Normally this access is read-only, and \dylp uses the constraint system
+  supplied as a parameter.
+  When scaling is needed, \dylp makes a local copy of the original constraint
+  system, applies scaling, and uses the scaled local copy as the original
+  constraint system.
+
+  \item\varhdr{degen}
+  \kw{lpcontrol antidegen} \te{boolean} \kw{;}
+
+  If set to false, \dylp will not use the perturbation-based anti-degeneracy
+  algorithm described in \secref{sec:PerturbedAntiDegeneracy}.
+  The default is to use perturbation-based anti-degeneracy.
+
+  \item\varhdr{degenlite}
+  \bgroup\raggedright
+    \kw{lpcontrol degenlite} \\
+    \hfil
+    [\kw{pivotabort}|\kw{pivot}|\kw{alignobj}|
+     \kw{alignedge}|\kw{perpobj}|\kw{perpedge}] \kw{;}
+  \egroup
+
+  This option specifies the tie-breaking strategy used for choosing
+  between candidates with equal deltas when selecting the
+  leaving primal or dual variable, as described in~\secref{sec:AntiDegenLite}.
+  The options are:
+  \begin{description}[0 (\kw{pivotabort})]
+    \item[0 (\kw{pivotabort})]
+    Break ties using the magnitude of the pivot coefficient, and abort the
+    search at the first basic variable which gives a delta of zero.
+
+    \item[1 (\kw{pivot})] (default)
+    Break ties using the magnitude of the pivot coefficient, scanning all
+    basic variables.
+
+    \item[2 (\kw{alignobj})]
+    Break ties by choosing the leaving variable which will make tight the
+    hyperplane most closely aligned with the normal of the objective
+    function (\ie, the normal most nearly lies in the hyperplane).
+
+    \item[3 (\kw{alignedge})]
+    Break ties by choosing the leaving variable which will make tight the
+    hyperplane most closely aligned with the direction of motion specified
+    by the entering variable (\ie, the edge most nearly lies in the
+    hyperplane).
+
+    \item[4 (\kw{perpobj})]
+    Break ties by choosing the leaving variable which will make tight the
+    hyperplane most nearly perpendicular to the normal of the objective
+    function (\ie, the hyperplane most nearly blocks motion in the direction
+    of the normal of the objective)
+
+    \item[5 (\kw{perpedge})]
+    Break ties by choosing the leaving variable which will make tight the
+    hyperplane most nearly perpendicular to the direction of motion specified
+    by the entering variable (\ie, the hyperplane most nearly blocks motion
+    in the direction of the edge).
+  \end{description}
+
+
+  \item\varhdr{degenpivlim}
+  \kw{lpcontrol degenpivs} \te{boolean} \kw{;}
+
+  $1 \leq 1 \leq \infty$
+
+  Limits the number of consecutive degenerate pivots which are
+  required to trigger the perturbation-based anti-degeneracy algorithm.
+  A perturbed subproblem is formed when the number of consecutive degenerate
+  pivots exceeds \pgmid{degenpivlim}.
+  The current default of 1 is very aggressive.
+
+  \item\Varhdr{dpsel}{strat, flex, allownopiv}
+
+  \kw{lpcontrol dualmultipiv} \te{integer} \kw{;}
+
+  There are four dual pivoting strategies accessible from the
+  \kw{dualmultipiv} command, specified by the following integer codes:
+  \begin{description}
+    \item[0] standard dual pivoting
+	     (\vid \secref{sec:DualStdSelectInVar})
+
+    \item[1] generalised dual pivoting
+	     (\vid \secref{sec:DualGenSelectInVar});
+	     pivot chosen for maximum dual objective improvement
+
+    \item[2] generalised dual pivoting; pivot chosen to mimimise the maximum
+	     infeasibility over primal variables
+
+    \item[3] generalised dual pivoting; pivot chosen to minimise the maximum
+	     infeasibility over primal variables only if the infeasibility
+	     can be reduced; otherwise the pivot is chosen for maximum
+	     dual objective improvement
+  \end{description}
+  The pivoting strategy currently in use is held in \pgmid{dpsel.strat}.
+
+  Two additional values are used to control generalised dual pivoting; these
+  can only be changed under program control.
+  \pgmid{dpsel.flex} defaults to true, allowing \dylp to move between
+  strategies~1 and~3.
+  If the client specifies a pivoting strategy using the \kw{dualmultipiv}
+  command, \pgmid{dpsel.flex} is set to false.
+  \pgmid{dpsel.allownopiv} controls whether \dylp will consider a generalised
+  dual `pivot' which consists of a sequence of variable flips without a final
+  pivot.
+  Computational experience says that this is very prone to cycling and
+  \pgmid{dpsel.allownopiv} is set to false by default.
+
+  The default initial setting for the dual pivoting options is
+  $\pgmid{dpsel.strat} = 1$, $\pgmid{dpsel.flex} = \pgmid{true}$, and
+  $\pgmid{dpsel.allownopiv} = \pgmid{false}$.
+
+
+  \item\varhdr{dualadd}
+  \kw{lpcontrol dualacttype} \te{integer} \kw{;}
+
+  This option controls the amount of effort that \dylp will expend attempting
+  to add variables (dual constraints) to bound a constraint system which
+  is dual unbounded (\vid \secref{sec:VariableActivation}).
+  \begin{itemize}
+    \item[0]
+    Variable activation is not attempted.
+
+    \item[1]
+    Type~1 variables are activated.
+    These are variables which could potentially bound the dual problem and
+    which will be dual feasible if activated and placed in the nonbasic
+    partition.
+    Multiple variables of this type can be activated simultaneously.
+
+    \item[2]
+    Type~2 variables will be activated if there are no type~1 variables.
+    Type~2 variables are variables which would be dual infeasible if placed
+    in the nonbasic partition, but which can be activated and immediately
+    pivoted into the basis to regain dual feasibility.
+    Only one variable of this type can be activated at a time, so this
+    level is computationally expensive.
+
+    \item[3] (default)
+    Type~3 variables will be activated if there are no type~1 or
+    type~2 variables.
+    Type~3 variables are variables which can be activated and placed in the
+    nonbasic partition with a bound-to-bound pivot.
+  \end{itemize}
+  If the limits placed on dual variable activation do not allow the dual
+  to be bounded \dylp will revert to primal simplex.
+  Allowing up to type~3 activations by default is somewhat risky; limiting
+  activations to type~1 would be a more conservative choice.
+
+  \item\varhdr{factor}
+  \kw{lpcontrol factor} \te{integer} \kw{;}
+
+  $1 \leq 50 \leq 100$
+
+  The nominal interval for refactoring the basis, in terms of the number of
+  pivots which actually change the basis.
+
+  Put another way, \pgmid{factor} limits the total number of eta matrices
+  in the multiplicative representation of the basis.
+  As eta matrices accumulate, the work required to perform multiplication by
+  the basis inverse increases, numerical inaccuracy increases, and the data
+  structure grows (\vid \secref{sec:GLPKBasisInit}).
+  This parameter attempts to balance these considerations against the work
+  required to refactor the basis.
+  \dylp will refactor earlier if it suspects numerical problems.
+
+  The upper limit is soft; \dylp will issue a warning if a higher value is
+  requested, but will not enforce the limit.
+
+  \item\varhdr{finpurge}{vars, cons}
+
+  \bgroup \raggedright
+  \kw{lpcontrol final purge} 
+    \bnflist[\raise2pt\hbox{\kw{,}}]{\nt{purge-spec}} \kw{;} \\
+  \nt{purge-spec} \bnfeq [ \kw{variables}|\kw{constraints}] \te{boolean}
+  \egroup
+
+  Specifies whether \dylp should perform a final round of constraint and/or
+  variable deactivation when the problem has been solved to optimality.
+  By default, \dylp will perform a final round of constraint deactivation and a
+  final round of variable deactivation before it returns.
+
+  This application of constraint and/or variable deactivation is \textit{not}
+  suppressed by the \pgmid{fullsys} option.
+
+
+  \item\varhdr{forcecold}
+  \kw{lpcontrol cold} \te{boolean} \kw{;}
+
+  When set to true, this option will force \dylp to perform a cold
+  start.
+  \pgmid{forcecold} dominates \pgmid{forcewarm}.
+  The absence of \pgmid{forcecold} and \pgmid{forcewarm} allows a hot start.
+
+  \item\varhdr{forcewarm}
+  \kw{lpcontrol warm} \te{boolean} \kw{;}
+
+  When set to \pgmid{true}, this option will force \dylp to perform a warm
+  start.
+  The absence of \pgmid{forcecold} and \pgmid{forcewarm} allows a hot start.
+
+  \item\varhdr{fullsys}
+  \kw{lpcontrol fullsys} \te{boolean} \kw{;}
+
+  When set to true, \pgmid{fullsys} forces the use of the full constraint
+  system at all times.
+  \dylp will load the entire constraint system at startup and no constraint or
+  variable activation or deactivation will be performed.
+
+  In the context of a branch-and-bound MIP code, where the bulk of the LPs
+  are reoptimisations
+  from a known basis, the use of dynamic simplex can save considerable work.
+  To solve an LP once from scratch, or to solve the initial LP relaxation in a
+  branch-and-bound context, use of the full system is usually (but not always)
+  more efficient.
+
+  \item\varhdr{groom}
+  \kw{lpcontrol groom} [\kw{silent}|\kw{warn}|\kw{abort}]  \kw{;}
+
+  Specifies the action taken when \dylp detects a nontrivial change in the
+  status of a variable when it performs a check following refactoring.
+  The possible values are
+  \begin{description}
+    \item[0 (\kw{silent})] Do nothing.
+
+    \item[1 (\kw{warn})] (default) Issue a warning message.
+
+    \item[2 (\kw{abort})] Issue an error message and force an abort.
+  \end{description}
+
+  The working assumption is that refactoring the basis removed accumulated
+  numerical inaccuracy, causing the change in the status of the variable.
+
+  \item\Varhdr{heroics}{d2p, p2d}
+
+  These parameters control whether \dylp will attempt difficult deactivations
+  when trying to force a transition to dual or primal feasibility.
+  \begin{description}
+    \item[\pgmid{d2p}]
+    If true, \dylp will attempt to deactivate primal infeasible basic
+    architectural variables when trying to force primal feasibility.
+
+    \item[\pgmid{p2d}]
+    If true, \dylp will attempt to deactivate tight constraints (\ie, nonbasic
+    logicals) when trying to force dual feasibility.
+  \end{description}
+  Both of these default to false.
+  Computational experience says that setting them to true is not useful.
+  They can be adjusted only under program control.
+
+  \item\varhdr{idlelim}
+  \kw{lpcontrol idle} \te{integer} \kw{;}
+
+  $0 \leq 1000 \leq 2*(\pgmid{concnt}+\pgmid{archvcnt}) \le 50000
+    \leq 2^{\pgmid{sizeof(int)}-3}$
+
+  The limit on the number of pivots allowed without an improvement in the
+  value of the objective function.
+
+  A pivot in which the change in the objective function value is less than
+  \pgmid{dy_tols.dchk} is defined to be an idle pivot.
+  Too many consecutive idle pivots are taken as an indication that the
+  LP has stalled and may be cycling.
+  If the number of pivots without change in the
+  objective exceeds \pgmid{idlelim}, \dylp aborts and returns
+  \pgmid{lpSTALLED}.
+  Left to its own devices, \dylp will enforce the inner limits of
+  $1000 \leq \pgmid{idlelim} \leq 50000$; the client can explicitly specify
+  any value within the outer limits.
+
+  \item\varhdr{initbasis}
+  \kw{lpcontrol coldbasis}
+      [\kw{slack}|\kw{logical}|\kw{architectural}] \kw{;}
+
+  This parameter specifies the type of initial basis constructed for a cold
+  start, as described in \secref{sec:ColdStart}.
+  \begin{description}[2 (\kw{architectural})]
+    \item[1 (\kw{logical})]
+    (default) Prefer slack, then artificial, variables for basic variables.
+    Architectural variables will not be used.
+
+    \item[1 (\kw{slack})] Prefer slack, then architectural, variables for
+    basic variables.
+    Artificial variables will be used if absolutely necessary.
+
+    \item[2 (\kw{architectural})] Prefer architectural, then slack, variables
+    for basic variables.
+    Artificial variables will be used if absolutely necessary.
+  \end{description}
+
+  \item\Varhdr{initcons}{frac, i1lopen, i1l, i1uopen, i1u,
+			 i2lopen, i2l, i2uopen, i2u}
+  \bgroup \raggedright
+  \kw{lpcontrol load} [\nt{load-fraction}] 
+    \bnflist[\raise2pt\hbox{\kw{,}}]{\nt{interval}} \kw{;} \\
+  \nt{load-fraction} \bnfeq \te{float} \\
+  \nt{interval} \bnfeq \nt{open-delim} \nt{ub} \nt{lb} \nt{close-delim} \\
+  \nt{ub} \bnfeq \te{float} \\
+  \nt{lb} \bnfeq \te{float} \\
+  \nt{open-delim} \bnfeq \kw{(} | \kw{[} \\
+  \nt{close-delim} \bnfeq \kw{)} | \kw{]}
+  \egroup
+
+  These parameters control the loading of a partial constraint system during
+  a cold start.
+  As described in \secref{sec:ColdStart}, constraints are ranked by the angle
+  formed by the constraint normal and the objective normal, and a specified
+  fraction of one or two angular intervals is loaded.
+
+  The parameter \pgmid{frac} specifies what fraction of the inequalities
+  in the specified intervals will be loaded.
+  The parameters \pgmid{i1l} and \pgmid{i1u} specify the upper and lower bounds
+  of one interval.
+  If \pgmid{i1lopen} is true, the lower boundary is open; if \pgmid{i1uopen} is
+  true, the upper boundary is open.
+  The parameters \pgmid{i2l}, \pgmid{i2u}, \pgmid{i2lopen}, and \pgmid{i2uopen}
+  can be used to specify an optional second interval.
+
+  A few examples will make the usage clear.
+  By default, \dylp loads 50\% of all inequalities, with the exception of
+  inequalities which form an angle of $\degs{90}$ with the objective.
+  This is specified as
+  \begin{flushleft}
+  \kw{lpcontrol load .5 [180 90) (90 0] ;}
+  \end{flushleft}
+  To load 75\% of the inequalities with angles between $\degs{100}$ and
+  $\degs{80}$, inclusive, the specification would be
+  \begin{flushleft}
+  \kw{lpcontrol load .75 [100 80] ;}
+  \end{flushleft}
+  Loading the complete constraint system with the specification
+  \begin{flushleft}
+  \kw{lpcontrol load 1.0 [180 0] ;}
+  \end{flushleft}
+  is \textit{not} equivalent to asking \dylp to always use the full constraint
+  system (\cf \pgmid{fullsys}).
+  It will look pretty much the same from the outside, but \dylp will
+  spend time internally
+  performing scans related to constraint and variable activation and
+  deactivation.
+
+
+  \item\varhdr{iterlim}
+  \kw{lpcontrol iters} \te{integer} \kw{;}
+
+  $0 \leq 10000 \leq 5*(\pgmid{concnt}+\pgmid{archvcnt}) \le 100000
+    \leq 2^{\pgmid{sizeof(int)}-3}$
+
+  The pivot limit for each occurrence of a simplex phase
+  (primal phases~I and II and dual phase~II).
+  The overall pivot limit, cumulative over all occurrences of all phases,
+  is $3*\pgmid{iterlim}$.
+  If either the per phase or total limit is exceeded, \dylp terminates the
+  problem and returns \pgmid{lpITERLIM}.
+  Left to its own devices, \dylp will enforce the inner limits of
+  $10000 \leq \pgmid{iterlim} \leq 100000$; the client can explicitly specify
+  any value within the outer limits.
+
+  \item\varhdr{patch}
+  \kw{lpcontrol patch} \te{boolean} \kw{;}
+
+  If set to false, \dylp is forbidden from patching a singular basis.
+  By default, \dylp will patch a singular basis and keep going.
+  You really don't want to set this to false.
+
+  \item\varhdr{ppsel}
+  \kw{lpcontrol primmultipiv} \te{integer} \kw{;}
+
+  There are two primal pivoting strategies accessible from the
+  \kw{primmultipiv} command, specified by the following integer codes:
+  \begin{description}
+    \item[0] standard primal pivoting
+	     (\vid \secref{sec:PrimalStdSelectOutVar})
+
+    \item[1] (default) extended primal pivoting
+	     (\vid \secref{sec:PrimalGenSelectOutVar})
+  \end{description}
+  The pivoting strategy currently in use is held in \pgmid{ppsel.strat}.
+
+  \item\varhdr{print}
+  \bgroup \raggedright
+  \kw{lpprint} \nt{what} \te{integer} \kw{;} \\
+  \nt{what} \bnfeq \kw{basis}|\kw{conmgmt}|\kw{crash}|\kw{degen}|\kw{dual}|
+      \kw{major}|\kw{phase1}|\kw{phase2}|\kw{pivoting}| \\
+      \hspace{8ex}
+      \kw{pivreject}|\kw{pricing}|\kw{scaling}|\kw{setup}|\kw{varmgmt}
+  \egroup
+
+  The print options control the amount of output which \dylp produces as it
+  runs.
+  This can be varied from absolutely nothing to copious output useful only
+  during detailed debugging.
+  Printing options are covered in detail in \secref{sec:DylpDebugging}, which
+  describes debugging options and capabilities.
+  If \dylp is compiled with the compile-time constant \pgmid{NDEBUG} defined,
+  virtually all informational printing is removed.
+
+  \item\varhdr{scaling}
+  \kw{lpcontrol scaling} \te{integer} \kw{;}
+
+  Specifies how \dylp should scale the constraint system (\secref{sec:Scaling}).
+  \begin{itemize}
+    \item[0] \dylp is not allowed to apply scaling.
+
+    \item[1] \dylp should use scaling vectors attached to the constraint
+	     system.
+
+    \item[2] (default) \dylp should evaluate the constraint system and apply
+	     scaling if necessary.
+  \end{itemize}
+
+  \item\varhdr{scan}
+  \kw{lpcontrol scan} \te{integer} \kw{;}
+
+  $200 \le \pgmid{archvcnt}/2 \le 1000$.
+
+  Specifies the minimum number of columns which will be scanned in primal
+  simplex to select a new candidate entering variable.
+  This parameter applies only when \pgmid{dy_primalin} is called to select
+  the entering variable (\vid \secref{sec:PrimalStdSelectInVar}).
+
+  \item\varhdr{usedual}
+  \kw{lpcontrol usedual} \te{boolean} \kw{;}
+
+  When set to false, this option prevents \dylp from using dual simplex.
+  By default, \dylp will use dual simplex when possible.
+\end{codedoc}
+
+\subsection{\dylp Tolerances}
+\label{DylpTolerances}
+
+\dylp has a number of numeric tolerances and related control information
+which are used in equality and accuracy checks and associated algorithms
+which attempt to control the accumulation of numerical accuracy.
+Each is described briefly below; again, the reader is encouraged to consult
+\coderef{dylp.h}{} for details.
+
+Several of the tolerances described below are dynamically adjusted by \dylp
+in response to its assessment of the numerical stability of the current
+basis.
+As a general rule, tread carefully when overriding \dylp's defaults, and
+please take the time to read the code comments and consider the
+interrelationships between the tolerances.
+
+\begin{codedoc}
+  \item\varhdr{bogus}
+  \kw{lpcontrol bogus} \te{double} \kw{;}
+
+  Default: 1.0
+
+  The `bogus number' tolerance.
+  Values such that $\pgmid{zero} < \abs{x} \le \pgmid{zero}*\pgmid{bogus}$
+  are considered likely to be the result of accumulated numerical inaccuracy,
+  rather than legitimate values.
+  Pivot coefficients and primal variable values within this range
+  will trigger refactoring of the basis.
+  For dual variables, the same test is applied, using the dual zero
+  tolerance (\pgmid{cost}).
+  The default value is $1.0$.
+
+  Experience seems to show that for the majority of problems
+  increasing this value will cause the basis to be refactored more
+  often and will not improve performance or accuracy.
+  It's better to rely on \dylp's accuracy checks to determine if the basis
+  should be refactored before the normal refactor interval has passed.
+  Increasing \pgmid{bogus} may be useful if scaling is disabled,
+  or if \pgmid{factor} has been set to a very large value.
+
+  \item\varhdr{cost}
+  \kw{lpcontrol costz} \te{double} \kw{;}
+
+  Default: $1.0\times10^{-11}$
+
+  The zero tolerance applied to values associated with the dual problem
+  (dual variables and reduced costs).
+
+  This tolerance may be tightened if \dylp scales the constraint system for
+  numerical stability.
+  Let $\psi = ((\max_{ij} \abs{a_{ij}})/(\min_{ij} \abs{a_{ij}}))^{1/2}$.
+  Let $\psi_u$ be the value calculated for the unscaled matrix $A$ and
+  $\psi_s$ be the value calculated for the scaled matrix $\breve{A}$.
+  Let $s = \max (0, \floor{\log \psi_u/\psi_s + .5}-2$.
+  The dual zero tolerance will be tightened by $10^{-s}$
+  (\ie, $\pgmid{cost} = \pgmid{cost} \times 10^{-s}$).
+  In english, if scaling really did make a
+  difference, so that the scaled matrix is significantly more stable than the
+  unscaled matrix, \dylp should be extra careful about accuracy so that the
+  scaled solution is still a solution after unscaling.
+
+  \item\varhdr{dchk}
+  \kw{lpcontrol dchk} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^{s-4}$,
+      where $s = \max (0, \floor{\log \pgmid{archccnt} + .5}-2$
+
+  The dual accuracy check tolerance, as described in \secref{AccuracyChecks}.
+  The adjustment by $s$ progressively loosens the accuracy check tolerance
+  for systems with more than $10^{2.5} \approx 300$ dual variables.
+  In english, when there are many dual variables, accumulating numerical
+  inaccuracy warrants some relaxation of the accuracy check tolerance.
+  This adjustment is made in \coderef{}{dy_checkdefaults}.
+
+  \item\varhdr{dfeas}
+
+  The dual feasibility check tolerance, dynamically calculated using
+  \pgmid{cost} as the base value, as described in \secref{AccuracyChecks}.
+
+  \item\varhdr{dfeas_scale}
+  \kw{lpcontrol dfeas} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^{s+2}$, 
+      where $s = \max (0, \floor{\log \pgmid{archccnt} + .5}-2$
+
+  Decoupling multiplier for scaling \pgmid{dfeas}.
+  This multiplier may be increased if the constraint system contains many
+  dual variables or if the constraint system is scaled.
+
+  The adjustment for a large number of dual variables is the same
+  adjustment applied for \pgmid{dchk}.
+
+  The adjustment for matrix scaling follows the adjustment described for
+  \pgmid{cost}.
+  Using the definitions for $\psi_u$ and $\psi_s$ given for \pgmid{cost},
+  $s = \max (0, \floor{\log \psi_u/\psi_s + .5}-1$
+  and \pgmid{dfeas_scale} will be increased by $10^s$.
+  In english, the separation between the dual zero tolerance and the dual
+  feasibility tolerance is increased to compensate for tightening the
+  dual zero tolerance.
+
+  \item\varhdr{inf}
+  \kw{lpcontrol infinity} [\kw{IEEE}|\kw{DBL\_MAX}|\te{double}] \kw{;}
+
+  Infinity.
+  \dylp can work with an infinite or finite infinity.
+
+  Default: \pgmid{HUGE_VAL}
+  
+  \pgmid{HUGE_VAL} will be IEEE 754 infinity on most modern systems.
+
+  Many numerical programs still use that mathematical oxymoron, a finite
+  infinity.
+  Most commonly, this will be the value defined for the ANSI C symbol
+  \coderef{float.h}{DBL_MAX}, the maximum representable value for type
+  \pgmid{double}.
+  Finite and infinite infinity do not play well together.
+  If \dylp is being used by a client program which uses a finite infinity,
+  set \pgmid{inf} to the client's value of infinity.
+
+  \item\varhdr{pchk}
+  \kw{lpcontrol pchk} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^{s-5}$,
+      where $s = \max (0, \floor{\log \pgmid{archvcnt} + .5}-2$
+
+  The primal accuracy check tolerance, as described in \secref{AccuracyChecks}.
+  The adjustment by $s$ progressively loosens the accuracy check tolerance
+  for systems with more than $10^{2.5} \approx 300$ variables.
+  In english, when there are many variables, accumulating numerical inaccuracy
+  warrants some relaxation of the accuracy check tolerance.
+  This adjustment is made in \coderef{}{dy_checkdefaults}.
+
+  \item\varhdr{pfeas}
+
+  The primal feasibility check tolerance, dynamically calculated using
+  \pgmid{zero} as the base value, as described in \secref{AccuracyChecks}.
+
+  \item\varhdr{pfeas_scale}
+  \kw{lpcontrol pfeas} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^{s+2}$, 
+      where $s = \max (0, \floor{\log \pgmid{archvcnt} + .5}-2$
+
+  A decoupling multiplier used to adjust the separation of \pgmid{pfeas}
+  and \pgmid{zero} as described in \secref{AccuracyChecks}.
+  This multiplier may be increased if the constraint system contains many
+  variables or if the constraint system is scaled.
+
+  The adjustment for a large number of variables, specified with the default
+  value, is the same adjustment applied for \pgmid{pchk}.
+  In english, when there are many variables, accumulating numerical inaccuracy
+  warrants some relaxation of the feasibility tolerance.
+
+  The adjustment for matrix scaling follows the adjustment described for
+  \pgmid{zero}.
+  Using the definitions for $\psi_u$ and $\psi_s$ given for \pgmid{zero},
+  $s = \max (0, \floor{\log \psi_u/\psi_s + .5}-1$
+  and \pgmid{pfeas_scale} will be increased by $10^s$.
+  In english, the separation between the zero tolerance and the feasibility
+  tolerance is increased to compensate for tightening the zero tolerance.
+
+  \item\varhdr{pivot}
+  \kw{lpcontrol pivot} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^-5$
+
+  The pivot selection multiplier.
+  A pivot coefficient $\overline{a}_{ij}$ will be accepted as
+  numerically stable in the primal algorithm if
+  $\abs{\overline{a}_{ij}} \ge
+    (\pgmid{pivot})(\pgmid{piv_tol})\norm[1]{\overline{a}_j}$,
+  where \pgmid{piv_tol} is the stable pivot tolerance used during factoring
+  in \glpk.
+  In the dual algorithm, the 1-norm is calculated over the pivot row
+  $\overline{a}_i$.
+
+  The pivot selection multiplier may be reduced if \dylp finds itself at an
+  extreme point where all potential pivots $x_i$, $x_j$ have been rejected
+  because the pivot coefficients $\overline{a}_{ij}$ were judged numerically
+  unstable (\vid \secref{sec:ErrorRecovery}).
+
+  In english, if \pgmid{pivot} were set to 1, the pivot coefficient
+  $\overline{a}_{ij}$ for every simplex pivot would have to satisfy the same
+  stability criterion that the \glpk basis package applies when factoring
+  the basis.
+  This would be overly restrictive, however --- when executing simplex pivots,
+  \dylp needs to choose the pivot row and column to maximise progress toward
+  an optimal extreme point.
+  Some compromise is necessary; the value of \pgmid{pivot} controls the
+  balance between numerical stability and progress toward an optimal solution.
+  When \dylp finds itself in a difficult spot, it will tilt the balance in
+  order to make progress toward optimality.
+
+  \item\varhdr{purge}
+  \kw{lpcontrol purgecon} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^{-4}$
+
+  The required percentage change in the value of the objective function before
+  constraint or variable deactivation is allowed.
+  This should be strictly greater than zero in order to minimise the
+  possibility of a cycle involving activation/deactivation of constraints or
+  variables.
+
+  \item\varhdr{purgevar}
+  \kw{lpcontrol purgevar} \te{double} \kw{;}
+
+  Default: .5
+
+  Used to calculate the variable deactivation threshold as a percentage of the
+  maximum unfavourable reduced costs, as described in
+  \secref{sec:VariableDeactivation}.
+
+  \item\varhdr{reframe}
+  \kw{lpcontrol reframe} \te{double} \kw{;}
+
+  Default: .1
+
+  The percentage error in the updated column or row norms which is required
+  to trigger a reset of the PSE reference frame or the DSE row norms,
+  respectively.
+  A relatively large error can be tolerated here.
+  The consequence of inaccuracy, a chance of a suboptimal choice of primal
+  entering or dual leaving variable, is not too serious.
+  In contrast, for the dual the computational cost of recalculating the
+  basis inverse row norms $\norm{\beta_k}$ is high.
+  For the primal, all column norms are reset to 1, effectively reverting to
+  unscaled (`Dantzig') pricing.
+
+  \item\varhdr{swing}
+  \kw{lpcontrol swing} \te{double} \kw{;}
+
+  Default: $1.0 \times 10^{15}$
+
+  This tolerance is used to detect excessive change in the values of the primal
+  variables.
+  The magnitude of the value prior to a pivot is compared to the magnitude
+  after the pivot.
+  If the  ratio exceeds the value of \pgmid{swing}, the simplex phase will
+  abort and \dylp will attempt to bound the primal swing (\vid
+  \secref{sec:ErrorRecovery}).
+
+  \item\varhdr{toobig}
+
+  Default: $1.0\times 10^{30}$.
+
+  This value is used to control changes in the dual multipivot strategy.
+  The breakpoints are currently hardcoded in
+  \coderef{dy_dualmultipivot}{dualmultiin} (which see).
+
+  \item\varhdr{zero}
+  \kw{lpcontrol zero} \te{double} \kw{;}
+
+  Default: $1.0\times 10^{-11}$.
+
+  The zero tolerance.
+  Values smaller than $\abs{\pgmid{zero}}$ are set to a clean floating-point
+  zero.
+
+  This tolerance may be tightened if \dylp scales the constraint matrix for
+  numerical stability.
+  Let $\psi = ((\max_{ij} \abs{a_{ij}})/(\min_{ij} \abs{a_{ij}}))^{1/2}$.
+  Let $\psi_u$ be the value calculated for the unscaled matrix $A$ and
+  $\psi_s$ be the value calculated for the scaled matrix $\breve{A}$.
+  Let $s = \max (0, \floor{\log \psi_u/\psi_s + .5}-2$.
+  The zero tolerance will be tightened by $10^{-s}$
+  (\ie, $\pgmid{zero} = \pgmid{zero} \times 10^{-s}$).
+  In english, if scaling really did make a
+  difference, so that the scaled matrix is significantly more stable than the
+  unscaled matrix, \dylp should be extra careful about accuracy so that the
+  scaled solution is still a solution after unscaling.
+
+\end{codedoc}

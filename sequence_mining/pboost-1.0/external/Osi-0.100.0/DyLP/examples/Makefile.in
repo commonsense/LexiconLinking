@@ -1,0 +1,171 @@
+# Copyright (C) 2006 International Business Machines and others.
+# All Rights Reserved.
+# This file is distributed under the Common Public License.
+
+# $Id: Makefile.in 726 2006-04-17 04:16:00Z andreasw $
+
+##########################################################################
+#			!! IMPORTANT !!
+
+# Makefile.in is the template used to produce the Makefile for the examples.
+# Makefile.in is processed when you run configure.  Variables bracketed by `@'
+# characters, e.g., @EXEEXT@, will be replaced with a value that is correct for
+# your specific installation and the choices you make when running configure.
+
+# If you write your own main program, or need to customise the Makefile for
+# some other reason, modify Makefile.in, not Makefile! Makefile is regenerated
+# every time you run configure, and your changes will be lost. If you don't see
+# variables like @EXEEXT@ below, you're looking at Makefile. You want
+# Makefile.in.
+
+# For those familiar with GNU autotools, who are asking ``What about
+# Makefile.am?'', stop looking. Makefile.in is the starting point in example
+# directories in a COIN distribution. Knowledge of make is all that's required
+# to work with Makefile.in, a more reasonable assumption for most users.
+##########################################################################
+
+# Blocks prefixed with CHANGEME will probably need some adjustment if you write
+# a custom main program.
+
+# As distributed, this makefile will build two sample main programs:
+#  * osi_dylp is a bare C driver for dylp; it makes no use of COIN software
+#  * odsi+dylp is a driver to exercise dylp via the OsiDylp OSI layer; it
+#    uses dylp as you should use it in the context of COIN.
+# Have a look at the README for more information about each of them.
+#
+# If you're customising this file for your own code, choose one of DRIVER_CXX
+# or DRIVER_C based on whether the main program is C or C++. The remainder of
+# the source files can be any mix of C or C++. (Adding other languages to the
+# mix will probably require more extensive modifications.)
+
+# CHANGEME: The name of your main program.
+
+DRIVER_CXX = odsi+dylp
+DRIVER_C = osi_dylp
+
+# CHANGEME: This should be the name of your executable. You won't need to edit
+# these lines unless you want the final executable to have a name that's
+# different from the name you gave for DRIVER_CXX / DRIVER_C just above.
+
+EXE_CXX = $(DRIVER_CXX)@EXEEXT@
+EXE_C = $(DRIVER_C)@EXEEXT@
+
+# CHANGEME: OBJS* should specify the files required to build the executable.
+
+OBJS_CXX =  $(DRIVER_CXX).@OBJEXT@
+
+OBJS_C = $(DRIVER_C).@OBJEXT@ \
+	mpsio.@OBJEXT@
+
+# CHANGEME: Additional libraries
+ADDLIBS =
+
+# CHANGEME: Additional flags for compilation (e.g., include flags)
+ADDINCFLAGS =
+
+# CHANGEME: Directory to the sources for the (example) problem definition
+# files
+SRCDIR = @srcdir@
+VPATH = @srcdir@
+
+##########################################################################
+#  Usually, you don't have to change anything below.  Note that if you   #
+#  change certain compiler options, you might have to recompile the      #
+#  COIN package.                                                         #
+##########################################################################
+
+# C++ Compiler command
+CXX = @CXX@
+
+# C++ Compiler options
+CXXFLAGS = @CXXFLAGS@
+CPPFLAGS = @CPPFLAGS@
+
+# additional C++ Compiler options for linking
+CXXLINKFLAGS = @LDFLAGS@ @RPATH_FLAGS@
+
+# C Compiler command
+CC = @CC@
+
+# C Compiler options
+CFLAGS = @CFLAGS@
+
+# Directory with COIN header files
+COININCDIR = @abs_include_dir@/coin
+
+# Directory with COIN libraries
+COINLIBDIR = @abs_lib_dir@
+
+# Libraries necessary to link with odsi+dylp. Order is important.
+LIBS_CXX = -L$(COINLIBDIR) -lOsiDylp -lDylp -lOsi -lCoinUtils \
+	`cat @COINUTILSDOCDIR@/coinutils_addlibs.txt` \
+	`cat @DYLPDOCDIR@/dylp_addlibs.txt` \
+	`cat @OSIDOCDIR@/osi_addlibs.txt`
+
+# Libraries necessary to link with osi_dylp
+LIBS_C = -L$(COINLIBDIR) -lDylp \
+	@ADDLIBS@ \
+	`cat @DYLPDOCDIR@/dylp_addlibs.txt`
+
+# Necessary Include dirs (we use the CYGPATH_W variables to allow
+# compilation with Windows compilers)
+INCL =  -I`$(CYGPATH_W) $(COININCDIR)` $(ADDINCFLAGS)
+
+# The following is necessary under cygwin, if native compilers are used
+CYGPATH_W = @CYGPATH_W@
+
+# check and installcheck are standard automake targets. The sample main
+# programs osi_dylp and odsi+dylp are included as simple checks for the
+# package, so it makes some sense to build them under these rules. But the
+# main test for dylp is to build and run the OSI unitTest with ODSI in the
+# build.
+
+examples: $(EXE_C) $(EXE_CXX)
+
+.SUFFIXES: .cpp .c .o .obj
+
+$(EXE_CXX): $(OBJS_CXX)
+	bla=;\
+	for file in $(OBJS_CXX); do bla="$$bla `$(CYGPATH_W) $$file`"; done; \
+	$(CXX) $(CXXLINKFLAGS) $(CXXFLAGS) \
+	  -o $@ $$bla $(ADDLIBS) $(LIBS_CXX)
+
+$(EXE_C): $(OBJS_C)
+	bla=;\
+	for file in $(OBJS_C); do bla="$$bla `$(CYGPATH_W) $$file`"; done; \
+	$(CC) $(CXXLINKFLAGS) $(CFLAGS) \
+	  -o $@ $$bla $(ADDLIBS) $(LIBS_C)
+
+# Standard automake clean targets, so that this directory gets properly
+# cleaned.
+
+mostlyclean clean: 
+	rm -rf $(EXE_CXX) $(EXE_C) $(OBJS_CXX) $(OBJS_C)
+	rm -rf afiro.log afiro.out greenbeb.log greenbeb.out
+
+distclean maintainer-clean: clean
+	rm -rf Makefile
+
+.cpp.o:
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(INCL) -c -o $@ `test -f '$<' || echo '$(SRCDIR)/'`$<
+
+
+.cpp.obj:
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(INCL) -c -o $@ `if test -f '$<'; then $(CYGPATH_W) '$<'; else $(CYGPATH_W) '$(SRCDIR)/$<'; fi`
+
+.c.o:
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCL) -c -o $@ `test -f '$<' || echo '$(SRCDIR)/'`$<
+
+
+.c.obj:
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCL) -c -o $@ `if test -f '$<'; then $(CYGPATH_W) '$<'; else $(CYGPATH_W) '$(SRCDIR)/$<'; fi`
+
+# These are standard automake targets that are not implemented. As per
+# recommendation in the automake manual for third-party makefiles.
+
+EMPTY_AUTOMAKE_TARGETS = \
+  all install install-data install-exec uninstall install-info installdirs \
+  check installcheck dvi pdf ps info html tags ctags
+.PHONY: $(EMPTY_AUTOMAKE_TARGETS)
+$(EMPTY_AUTOMAKE_TARGETS):
+

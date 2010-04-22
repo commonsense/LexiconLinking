@@ -1,0 +1,25 @@
+%Filename: OMLpplcm.fd
+%Created by: tex pplmath
+%Created using fontinst v1.335
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{OMLpplcm.fd}
+   [1996/03/30 Fontinst v1.335 font definitions for OML/pplcm.]
+
+\DeclareFontFamily{OML}{pplcm}{\skewchar \font =127}
+
+\DeclareFontShape{OML}{pplcm}{m}{it}{
+   <-> zpplcmrm
+}{}
+
+\DeclareFontShape{OML}{pplcm}{b}{it}{
+   <-> zpplcmbm
+}{}
+
+\DeclareFontShape{OML}{pplcm}{m}{ui}{<->sub * pplcm/m/it}{}
+\DeclareFontShape{OML}{pplcm}{bx}{it}{<->ssub * pplcm/b/it}{}
+\DeclareFontShape{OML}{pplcm}{b}{ui}{<->sub * pplcm/b/it}{}
+\DeclareFontShape{OML}{pplcm}{bx}{ui}{<->ssub * pplcm/b/ui}{}
+
+\endinput

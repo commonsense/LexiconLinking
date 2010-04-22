@@ -1,0 +1,55 @@
+
+	Dylp: An implementation of the dynamic simplex algorithm
+
+  Dylp is a linear programming solver, based on the dynamic simplex algorithm.
+  Roughly, this means that dylp attempts to maintain an active constraint
+  system which consists of only those constraints and variables that are
+  relevant at the current extreme point. The bet is that this will be a
+  useful property in situations where the same constraint system is
+  repeatedly modified and reoptimised (e.g., in a branch-cut-price MIP
+  code).  You can also tell dylp to operate with the full constraint system,
+  which is useful for obtaining an initial solution.
+
+  Dylp is built to be a research and development code. It can produce a range
+  of statistics, and it can tell you more about how it's solving your problem
+  than most people will ever want to know. It also includes extensive cross
+  checks to catch errors during program development.
+
+  Dylp development takes place in a Sun Solaris/Workshop programming
+  environment, most recently Solaris 9 and Forte Developer 7 C/C++ 5.4.  It
+  is also tested in a Linux environment, most recently SuSE Linux 9.0 and GCC
+  3.3.1. COIN-OR places some importance on Windows compatibility, and if you
+  can build COIN at all, then dylp should run. If it doesn't, please say
+  something. Generally speaking, if your computing environment supports IEEE
+  floating point then it should be possible to port dylp with very little
+  effort.
+
+  ============================================================================
+
+  Maintainer: Lou Hafer, lou@cs.sfu.ca
+
+
+  Web pages: 
+
+   Eh, what to say here. COIN has a lot of infrastructure just coming on line,
+   and I'm just getting the hang of it. Here's a selection of resources, which
+   will improve as I get time to tweak them:
+   
+   http://www.coin-or.org/projects.html#dylp	The dylp paragraph on the
+					COIN-OR projects page.
+   http://www.coin-or.org/svn/DyLP	Dylp's subversion repository. Check
+					out the Trunk directory.
+   http://projects.coin-or.org/DyLP	Dylp's Trac page. Pretty raw at this
+					point. Please submit bugs here. Also
+					a decent browsing interface to the
+					subversion repository.
+   http://www.cs.sfu.ca/~lou/OsiDylp	The pre-COIN web page.
+
+
+  Mailing list:
+   
+   http://list.coin-or.org/mailman/listinfo/coin-discuss	The main COIN
+					mailing list. Probably as good a place
+					as any for comments until the volume
+					gets large enough to justify a dylp
+					list.

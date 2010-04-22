@@ -1,0 +1,254 @@
+\section{Dynamic Simplex}
+\label{sec:DynamicSimplex}
+
+\subsection{Normal Algorithm Flow}
+\label{sec:NormalDynamicFlow}
+
+Figure~\ref{fig:DylpFlow} gives the normal flow of the dynamic simplex
+algorithm implemented in \dylp.
+\begin{figure}
+\centering
+\includegraphics{\figures/dylpnormalflow}
+\caption{Dynamic Simplex Algorithm Flow} \label{fig:DylpFlow}
+\end{figure}
+The outcomes included in the normal flow of the algorithm are primal
+optimality, infeasibility, and unboundedness, and dual optimality and
+unboundedness.
+Other outcomes (\eg, loss of dual feasibility during dual simplex, or
+numerical instability) are discussed in \secref{sec:ErrorRecovery}.
+
+The implementation of the dynamic simplex algorithm is structured as
+a finite state machine, with six normal states,
+primal simplex, dual simplex,
+deactivate variables, activate variables,
+deactivate constraints, and activate constraints;
+two user-supplied states, generate variables and generate constraints;
+and three error recovery states,
+force primal feasibility, force dual feasibility,
+and force full constraint system.
+State transitions are determined by the previous state,
+the type of simplex in use, and the outcome of actions in a state.
+
+As described in \secref{sec:Startup}, \dylp establishes an initial active
+constraint system, determines whether the system is primal or dual feasible,
+and chooses the appropriate simplex as the starting phase.
+
+The most common execution pattern is as described in the Introduction:
+The initial active constraint system is neither primal or dual feasible.
+Primal simplex is used to solve this system to optimality.
+A minor loop then activates variables with favourable reduced cost and
+reoptimises using primal phase~II\@.
+This loop repeats until no variables can be activated; at this point the
+solution is optimal for the active constraints, over all variables.
+The algorithm then attempts to activate violated constraints; if none are
+found, the solution is optimal for the original problem.
+After violated constraints are activated, loose constraints are deactivated
+and dual simplex is used to reoptimise.
+When an optimal solution is reached, the algorithm attempts to activate
+variables with favourable reduced cost and return to the
+`primal phase~II -- activate variables' minor loop.
+If no variables can be activated, the algorithm attempts to activate violated
+constraints.
+If none are found, the solution is optimal for the original problem.
+If violated constraints are activated, then an attempt is made to activate
+dual feasible variables and dual simplex is used to reoptimise.
+
+There is an obvious asymmetry in the use of primal and dual simplex.
+When primal simplex reaches an optimal solution, the
+`primal phase~II -- activate variables' minor loop iterates until no useful
+variables remain to be activated.
+Only then does the algorithm activate violated constraints and move to dual
+simplex.
+The analogous minor loop for dual simplex would be to add violated constraints
+(dual variables with favourable reduced costs) and reoptimise with dual
+simplex until no violated constraints remain.
+Instead, the algorithm attempts to add variables and return to primal simplex;
+failing that, it will add both violated constraints and dual feasible
+variables (satisfied dual constraints).
+The purpose of this asymmetry is two-fold:
+It acknowledges that primal infeasibility is much more likely than primal
+unboundedness when solving LPs in the context of a branch-and-cut algorithm,
+and it attempts to avoid the large swings in the values of primal variables
+which often accompany dual unboundedness.
+Dual simplex moves between primal infeasible basic
+solutions which can be at a large distance from the primal feasible region and
+at a large distance from one another in the primal space.
+This presents a challenge for numerical stability.
+Because the primal simplex remains within the primal feasible region,
+primal unboundedness does not present the same difficulty.
+
+To avoid cycling by repeatedly deactivating and reactivating the same
+constraint when the dimension of the optimal face is greater than one,
+constraint deactivation is skipped unless there has been an
+improvement in the objective function since the previous constraint
+deactivation phase.
+This guarantees that the simplex will not return to a previous extreme
+point.
+
+If primal simplex finds that the active system is infeasible, the algorithm
+will attempt to activate variables with favourable reduced cost under
+the phase~I objective function (\vid \secref{sec:PrimalSimplex}) and
+resume primal phase~I\@.
+If no variables can be found, the original problem is infeasible.
+
+If primal simplex finds that the active system is unbounded, the algorithm
+first attempts to activate bounding constraints which will not cause the loss
+of primal feasibility.
+If such constraints can be found, execution returns to primal phase~II\@.
+If no such constraints can be found, or primal feasibility is not an issue,
+all violated constraints are added and execution moves to dual simplex.
+If no violated constraints can be found, the full constraint system is
+activated.
+If primal simplex again returns an indication of unboundedness, the original
+problem is declared to be unbounded.
+The effort expended before indicating a problem is unbounded acknowledges
+that unboundedness is expected to be extremely rare in \dylp's
+intended application.
+
+If dual simplex finds that the active system is dual unbounded (primal
+infeasible), the algorithm first attempts to activate dual bounding
+constraints (primal variables) which will not cause the loss of dual
+feasibility.
+If such dual constraints can be found, execution returns to dual simplex.
+If no such dual constraints can be found, the algorithm will attempt to
+activate variables with favourable reduced cost under the primal phase~I
+objective function and continue with primal phase~I\@.
+
+\subsection{Error Recovery}
+\label{sec:ErrorRecovery}
+
+A substantial amount of \dylp's error recovery capability is hidden within the
+primal and dual simplex algorithms.
+It is also possible to use the capabilities present in a dynamic
+simplex algorithm to attempt error recovery at this level.
+The dynamic simplex algorithm modifies the constraint system as part
+of its normal execution.
+This ability can be harnessed to force a transition from one simplex to
+another when one simplex runs into trouble.
+The actions described in this section are fully integrated with the actions
+described in \secref{sec:NormalDynamicFlow}.
+They are described separately to avoid reducing Figure~\ref{fig:DylpFlow} to
+an incomprehensible snarl of state transitions.
+
+\noindent
+\textbf{Primal Simplex}
+
+The error recovery actions associated with the primal simplex algorithm are
+shown in Figure~\ref{fig:DynErrRecPrimal}.
+\begin{figure}
+\centering
+\includegraphics{\figures/primalerrorflow}
+\caption{Error Recovery Actions for Primal Simplex Error Outcomes}
+\label{fig:DynErrRecPrimal}
+\end{figure}
+There are five conditions of interest, excessive change in the value of primal
+variables (excessive swing), stalling (stall), inability to perform a pivot
+(punt), numerical instability (accuracy check), and other errors (other
+error).
+
+Excessive change (`swing') in the value of a primal variable during primal
+simplex is taken as an
+indication that the primal problem is verging on unboundedness.
+Swing is defined as $(\textrm{new value})/(\textrm{old value})$.
+\dylp's default tolerance for this ratio is $10^{15}$.
+The action taken is the same as that used for normal detection of
+unboundedness, with the exception that the algorithm will always return to
+primal simplex.
+
+When primal simplex stalls or is forced to punt, the strategy is to attempt to
+modify the constraint system so that the simplex algorithm will be able to
+choose a new pivot and again make progress toward one of the standard outcomes
+of optimality, infeasibility, or unboundedness.
+The specific actions vary slightly depending on whether primal feasibility has
+been achieved.
+
+If primal simplex is still in phase~I, the first action is to try to activate
+variables which have a favourable reduced cost under the phase~I objective.
+If this succeeds, execution returns to primal simplex.
+If no variables can be found, the algorithm will attempt to activate violated
+constraints; if successful, execution returns to primal simplex.
+If no variables or constraints have been activated, there is no point in
+returning to primal simplex as the outcome will be unchanged.
+In this case, the algorithm will attempt to force dual feasibility by
+deactivating variables whose reduced costs are not dual feasible (\ie,
+deactivate unsatisfied dual constraints).
+If this succeeds, the algorithm will deactivate loose constraints (dual
+variables) to reduce the chance of dual unboundedness and continue with dual
+simplex.
+Failing all the above, the ultimate action is to active the full constraint
+system and attempt to solve it with primal or dual simplex.
+This can be done only once, to avoid a cycle in which the full system is
+activated, pared down while forcing primal or dual feasibility, and then
+reactivated when lesser measures again fail.
+
+When a stall or punt occurs in primal phase~II, the first action is again to
+attempt to activate variables with a favourable reduced cost.
+However, if no new variables can be found, the algorithm immediately attempts
+to force dual feasibility.
+Only if this can be achieved will it proceed to activate violated constraints,
+deactivate loose constraints, and proceed to dual simplex.
+Failure to force dual feasibility or to activate any constraints causes forced
+activation of the full constraint system as described above.
+
+Both the primal and dual simplex algorithm incorporate extensive checks and
+error recovery actions to detect and recover from numerical instability.
+By the time a simplex gives up and reports that it cannot overcome numerical
+problems, there is little to be done but force activation of the full
+constraint system for one last attempt.
+
+Other errors indicate algorithmic failures within the simplex algorithms (\eg,
+failure to acquire resources, or conditions not anticipated by the code)
+and no attempt is made to recover at the dynamic simplex level.
+
+\noindent
+\textbf{Dual Simplex}
+
+The error recovery actions associated with the dual simplex algorithm are
+shown in Figure~\ref{fig:DynErrRecDual}.
+\begin{figure}
+\centering
+\includegraphics{\figures/dualerrorflow}
+\caption{Error Recovery Actions for Dual Simplex Error Outcomes}
+\label{fig:DynErrRecDual}
+\end{figure}
+In addition to the five outcomes cited for primal simplex, loss of dual
+feasibility (lost dual feasibility) can be reported by the dual simplex
+algorithm.
+(Loss of primal feasibility is handled internally by the primal simplex, which
+simply returns to phase~I simplex iterations.)
+
+When the dual simplex algorithm loses feasibility, the algorithm will attempt
+to force dual feasibility by deleting the offending dual constraints (primal
+variables).
+If this succeeds, it will attempt to activate feasible dual constraints and
+return to dual simplex.
+If dual feasibility cannot be restored, the algorithm attempts to activate
+variables with favourable reduced costs under the primal phase~I objective and
+executes primal phase~1\@.
+
+Excessive change in the value of primal variables during dual simplex is taken
+as an indication that the dual algorithm is moving between basic solutions
+which are far outside the primal feasible region and far from each other.
+When excessive change in a primal variable is detected, the algorithm
+attempts to activate primal constraints which will bound this motion.
+If this is successful, execution of dual simplex resumes.
+General activation of violated primal constraints is not attempted as it is
+less likely to bound the primal swing.
+If no bounding constraints can be found, the algorithm attempts to activate
+feasible dual constraints and return to dual simplex.
+If no such constraints can be found, 
+the algorithm attempts to activate
+variables with favourable reduced costs under the primal phase~I objective and
+executes primal phase~1\@.
+
+When dual simplex reports that it has stalled or cannot execute necessary
+pivots, the algorithm first attempts to activate violated primal constraints.
+If such constraints can be activated, execution returns to dual simplex.
+If no constraints can be found, the algorithm attempts to force primal
+feasibility by deactivating violated primal constraints.
+Depending on the result of this action, the algorithm attempts to activate
+variables with favourable reduced costs under the primal phase~I or phase~II
+objective and executes primal simplex.
+
+Loss of numerical stability and other errors are handled as for primal
+simplex.

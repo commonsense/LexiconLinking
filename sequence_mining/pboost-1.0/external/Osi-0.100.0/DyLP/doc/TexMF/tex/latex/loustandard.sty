@@ -1,0 +1,356 @@
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{loustandard}%
+  [1996/04/10 v1.0 Lou Hafer Standard macros, style modifications, etc.]
+
+\RequirePackage{calc}
+\RequirePackage{xspace}
+\RequirePackage{ifthen}
+\RequirePackage{array}
+\RequirePackage{version}
+
+
+%		Basic Page Setup
+
+% The first thing we do is cancel the horizontal and vertical offsets.
+
+\setlength{\hoffset}{-1in}
+\setlength{\voffset}{-1in}
+
+% For one-sided printing, arrange for 1 inch margins on each side. For
+% two-sided printing, add 1/2 inch to the binding margin (right margin for even
+% pages, left margin for odd pages). Because of the way LaTeX specifies the
+% page layout, the easiest way to get this to work is to set evenmargin to
+% the desired margin, odd margin to margin+bindingmargin, and then set the
+% linewidth to whatever's left. LaTeX won't make any use of evensidemargin in
+% onesided mode.
+
+\ifthenelse{\boolean{@twoside}}
+{\setlength{\oddsidemargin}{1.5in}
+ \setlength{\evensidemargin}{1in}}
+{\setlength{\oddsidemargin}{1in}
+ \setlength{\evensidemargin}{1in}}
+\setlength{\textwidth}{\paperwidth-\oddsidemargin-\evensidemargin}
+
+% For top and bottom margins, arrange for 1.25 inch
+% margin on top, with the running head set in the margin; 1.25 inch margin at
+% bottom, with the running foot set in the margin.
+
+\setlength{\topmargin}{.75in}
+\setlength{\headsep}{1.25in-\topmargin-\headheight}
+\setlength{\footskip}{.75in}
+\setlength{\textheight}{\paperheight-2.5in}
+
+% Get control of the running headers, if the document defines the myheadings
+% page style. Also install a default footer with the page number.
+
+\ifx\ps@myheadings\undefined
+\else
+  \pagestyle{myheadings}
+  \renewcommand{\@oddhead}{\rightmark}
+  \renewcommand{\@oddfoot}{\hfill \textrm{\thepage} \hfill}
+\fi
+
+% Add a little spread between paragraphs.
+
+\addtolength{\parskip}{.5\baselineskip}
+
+
+% 		Tabular Utility Commands
+
+% \pbs preserves the \\ command over raggedleft, centering, or raggedright
+% in p columns.
+% \tnl is just a shorthand for \tabularnewline, which the LaTeX people
+% introduced as an alternate solution to the problem.
+
+\newcommand{\pbs}[1]{\let\pbs@temp=\\#1\let\\=\pbs@temp}
+\newcommand{\tnl}{\tabularnewline}
+
+% A command that makes nice double rules for total lines in tables, etc.
+% The optional parameter specifies the separation (the top rule will be
+% lifted by this much.
+
+\newcommand{\dblrulefill}[1][2pt]
+{\leavevmode%
+ \cleaders%
+ \hbox{\rule[#1]{2pt}{.4pt}\kern-2pt\rule{2pt}{.4pt}}%
+ \hfill\kern 0pt}
+
+
+%		Font and Glyph Utility Commands
+
+% Basic commands for convenient access to glyphs in the symbol and dingbats
+% fonts. Cribbed from the pifont package.
+
+\newcommand{\Pifont}[1]%
+ {\fontfamily{#1}\fontencoding{U}\fontseries{m}\fontshape{n}\selectfont}
+\newcommand{\Pisymbol}[2]{{\Pifont{#1}\char#2}}
+
+% This next bit requires a Upxx.fd file around somewhere (replace xx with your
+% favourite Adobe font), so that we can go in directly with the Adobe encoding.
+% Might be worth defining the Adobe encoding vector some time.
+
+\newcommand{\cent}{\fontencoding{U}\selectfont\char"A2}
+\newcommand{\bkslsh}{\fontencoding{U}\selectfont\char"5C\relax}
+
+% The degree symbol. Use a superscript sans-serif `o'. The ring accent just
+% doesn't cut it. Usage is \degs{180}, for example.
+
+\newcommand{\degs}[1]{#1\raise.8ex\hbox{\scriptsize\textsf o}}
+
+
+%		Environments, Commands, etc.
+
+% Reference commands, that'll automatically include the appropriate surround.
+% With \secref, the first (optional) parameter can be used to override the
+% default \S prefix; an `*' will suppress the prefix entirely.
+
+\newcommand{\eqnref}[1]{(\ref{#1})}
+\newcommand{\secref}[2][]%
+{\ifthenelse{\equal{#1}{}}%
+    {\S}%
+    {\ifthenelse{\equal{#1}{*}}{}{#1}}%
+  \ref{#2}%
+}
+
+% Redefine footnote formatting to eliminate paragraph indent. It looks silly.
+
+\renewcommand{\@makefnmark}{\makebox{\textsuperscript{\@thefnmark}}}
+\renewcommand{\@makefntext}[1]%
+{\begin{quotation}[\hspace{2ex}]%
+ \makebox[2ex][r]{\textsuperscript{\@thefnmark}}#1%
+ \end{quotation}%
+}
+
+% A commentary environment, for big blocks of commentary. Puts a neat little
+% hooked bar at the beginning and end of the commentary block. Because this
+% isn't really used as an enumerated list environment, nested enumerated lists
+% look better if the list depth isn't incremented inside the environment.
+% The fussing at the beginning (\mbox{}\raggedright\newline) makes sure that
+% there's a line to end, and ends it.
+
+\newenvironment{commentary}%
+  {{\mbox{}\raggedright\newline}\vspace{.5\baselineskip}\noindent%
+   \rule[-6pt]{2pt}{8pt}\rule{15em}{2pt}\vspace{-10pt}%
+   \ifnum \@listdepth = 0\relax \vspace{-\topsep} \else \fi%
+   \begin{list}{}%
+     {\setlength{\leftmargin}{2ex}%
+      \setlength{\listparindent}{\parindent}%
+      \setlength{\itemindent}{\parindent}%
+      \global\advance\@listdepth\m@ne}%
+    \item\relax}
+  {\global\advance\@listdepth\@ne%
+   \end{list}\vspace*{-\parskip}%
+   \ifnum \@listdepth = 0\relax \vspace{-\topsep} \else \fi%
+   {\raggedright\noindent%
+    \rule{2pt}{8pt}\rule{15em}{2pt}\\[.4\baselineskip]}}
+
+% An `aside' environment, set off with guillemots and typeset in Zapf Chancery.
+% This depends on the existence of XXpzc.fd, where XX is the current encoding.
+% I need to fix the scaling properly for Zapf, but for now kludge it with the
+% unaside command.
+
+\newcommand{\aside}[1]%
+  {<< {\fontfamily{pzc}\fontshape{it}\selectfont\large #1} >>}
+\newcommand{\unaside}[1]{\bgroup\normalsize #1\egroup}
+
+% Common latin abbreviations. The \@ prevents addition of end-of-sentence space
+% after a period by resetting the space factor to 1000. (See Chap.12 of the
+% TexBook, and ltspaces.dtx for the definition of \@). Not used for \etc and
+% \etal because they often end sentences. Prabably not necessary for e.g. and
+% i.e., as they're virtually always followed by a comma in the manuscript.
+
+\newcommand{\vid}{\textit{vid}.\@\xspace}
+\newcommand{\cf}{\textit{cf}.\@\xspace}
+\newcommand{\ie}{\textit{i\/}.\textit{e}.\@\xspace}
+\newcommand{\eg}{\textit{e}.\textit{g}.\@\xspace}
+\newcommand{\etc}{\textit{etc}.\xspace}
+\newcommand{\etal}{\textit{et al}.\xspace}
+\newcommand{\vs}{\textit{vs}.\@\xspace}
+
+% Unnumbered heading and subheading.
+
+\newcommand{\heading}[1]{%
+  \@startsection{heading}%
+  {1}{0pt}{\baselineskip}{\baselineskip}{\centering\bfseries\Large}*%
+  {#1}}
+
+% Default for subheading is centered; \subheading[l]{...} does flush left,
+% \subheading[r]{....} does flushright (and [c] will center).
+
+\newcommand{\subheading}[2][c]{%
+  \if#1l%
+  \@startsection{subheading}%
+  {2}{0pt}{\baselineskip}{.25\baselineskip}{\raggedright\bfseries}*%
+  {#2}%
+  \else\if#1c%
+  \@startsection{subheading}%
+  {2}{0pt}{\baselineskip}{.25\baselineskip}{\centering\bfseries}*%
+  {#2}%
+  \else
+  \@startsection{subheading}%
+  {2}{0pt}{\baselineskip}{.25\baselineskip}{\raggedleft\bfseries}*%
+  {#2}%
+  \fi\fi}
+
+% Redefine quotation so that it will outdent the initial line by the width
+% of an opening double quote. Make the `quote' string a parameter, in case
+% we want to change it some day.
+
+\renewenvironment{quotation}[1][``]%
+  {\begin{list}{}%
+   {\listparindent 0pt%
+     \settowidth{\labelwidth}{#1}%
+     \setlength{\itemindent}{-\labelwidth}%
+     \rightmargin \leftmargin%
+     \parsep \z@ \@plus\p@}%
+   \item\relax}
+   {\end{list}}
+
+% Redefine description so that it allows convenient adjustment of the
+% indent.
+
+\renewenvironment{description}[1][\quad]%
+  {\begin{list}{}{\renewcommand{\makelabel}[1]{##1 \hfill}%
+		  \settowidth{\labelwidth}{#1 }%
+		  \setlength{\leftmargin}{\labelwidth+\labelsep}}}
+  {\end{list}}
+
+% Make the \itemize environment use dingbats for the labels.
+
+\renewcommand{\labelitemi}{\Pisymbol{pzd}{101}}
+\renewcommand{\labelitemii}{\Pisymbol{pzd}{102}}
+\renewcommand{\labelitemiii}{\Pisymbol{pzd}{100}}
+\renewcommand{\labelitemiv}{\Pisymbol{pzd}{83}}
+
+% Handy macro, txtfrac{<num>}{<denom}, to produce a numeric fraction (e.g.,
+% 1/2, or 7/4) in running text. To make this look right, you really need to
+% kern 7 when it's the last digit of the numerator, and 4 when it's the first
+% digit of the denominator. It takes a bit of work to manage the kern on 7,
+% mostly to get to the last digit of the numerator. This was probably more
+% work than it was worth, given that the vast majority of uses will probably
+% have single digit numerators, but it was instructive in terms of learning
+% how Tex macros work.
+
+\newcommand{\last@digit@action}[3]{\ifx#1#3\kern#2\fi}
+
+\newcommand{\kern@last@digit}[4]{%
+  #3%
+  \if\is@digit#4T%
+    \let\kld@next\kern@last@digit%
+  \else%
+    \last@digit@action{#1}{#2}{#3}%
+    \def\kld@next##1##2##3{##3}%
+  \fi%
+  \kld@next#1{#2}#4}
+
+\newcommand{\is@digit}[1]%
+{\ifx0#1T\else\ifx1#1T\else\ifx2#1T\else\ifx3#1T\else\ifx4#1T\else%
+ \ifx5#1T\else\ifx6#1T\else\ifx7#1T\else\ifx8#1T\else\ifx9#1T%
+ \else F\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi}
+
+
+\newcommand{\bot@kern}[3]{\ifx#1#3\hspace{#2}#1\else#3\fi}
+\newcommand{\txtfrac}[2]{%
+  \mbox{\raisebox{.5ex}{\footnotesize \kern@last@digit{7}{-.25em}#1}%
+	\hspace{.05em}%
+	\raisebox{-.1ex}{\Pisymbol{psy}{"A4}}%
+	\hspace{-0em}%
+	\raisebox{-.5ex}{\footnotesize \bot@kern{4}{-.2em}#2}}}
+
+% A bunch of macros that take care of subscripts and superscripts in
+% running text. Far more difficult than it has any right to be.
+
+% Consider replacing these with the textsuperscript command, or a derivative,
+% documented in the loose-leaf TeX documentation. A quick glance through
+% the LaTeX source makes it look plausible. At least we can use the command
+% defined there for point size.
+
+% Extracts the point size from the definition of the various sizes. You need
+% to know that /tiny, for example, expands to
+% \long\macro:->\@setfontsize \tiny \@vpt \@vipt
+% where the three parameters to @setfontsize are <name>, <point size>,
+% <line spacing>, in that order. <line spacing> isn't always given as a
+% variable. The extractptsize macro could well fail under some variation I
+% didn't spot.
+
+\makeatother
+\def\extractptsize#1@#2@#3 #4|{\csname@#3\endcsname}
+\makeatletter
+\newcommand{\pointsize}[1]{\expandafter\extractptsize\meaning#1|}
+
+% This ugly little number compares the present point size to the point size
+% for the defined sizes and returns an integer code matching the size. It
+% isn't convenient to do this with numeric comparison because the calc
+% package chokes on fractional point sizes.
+
+\newcounter{currsizecode}
+\newcommand{\currsize}%
+ {\ifthenelse{\equal{\f@size}{\pointsize{\normalsize}}}%
+   {\setcounter{currsizecode}{4}}%
+   {\ifthenelse{\equal{\f@size}{\pointsize{\large}}}%
+     {\setcounter{currsizecode}{5}}% 
+     {\ifthenelse{\equal{\f@size}{\pointsize{\small}}}%
+       {\setcounter{currsizecode}{3}}%
+       {\ifthenelse{\equal{\f@size}{\pointsize{\Large}}}%
+	 {\setcounter{currsizecode}{6}}%
+	 {\ifthenelse{\equal{\f@size}{\pointsize{\footnotesize}}}%
+	   {\setcounter{currsizecode}{2}}%
+	   {\ifthenelse{\equal{\f@size}{\pointsize{\LARGE}}}%
+	     {\setcounter{currsizecode}{7}}%
+	     {\ifthenelse{\equal{\f@size}{\pointsize{\scriptsize}}}%
+	       {\setcounter{currsizecode}{1}}%
+	       {\ifthenelse{\equal{\f@size}{\pointsize{\huge}}}%
+		 {\setcounter{currsizecode}{8}}%
+		 {\ifthenelse{\equal{\f@size}{\pointsize{\tiny}}}%
+		   {\setcounter{currsizecode}{0}}%
+		   {\ifthenelse{\equal{\f@size}{\pointsize{\Huge}}}%
+		     {\setcounter{currsizecode}{9}}%
+		     {\setcounter{currsizecode}{10}}%
+		   }%
+		 }%
+	       }%
+	     }%
+	   }%
+	 }%
+       }%
+     }%
+   }%
+ }
+
+% This guy specifies the appropriate adjustments to font size and baseline
+% height.
+
+\newcommand{\subsupadjust}
+ {\currsize%
+  \ifcase\value{currsizecode}%
+    \def\newsize{\tiny}\def\newheight{.7ex}%		0: \tiny
+  \or%
+    \def\newsize{\tiny}\def\newheight{.7ex}%		1: \scriptsize
+  \or%
+    \def\newsize{\tiny}\def\newheight{.7ex}%		2: \footnotesize
+  \or%
+    \def\newsize{\scriptsize}\def\newheight{.7ex}%	3: \small
+  \or%
+    \def\newsize{\scriptsize}\def\newheight{.7ex}%	4: \normalsize
+  \or%
+    \def\newsize{\footnotesize}\def\newheight{.7ex}%	5: \large
+  \or%
+    \def\newsize{\small}\def\newheight{.7ex}%		6: \Large
+  \or%
+    \def\newsize{\small}\def\newheight{.7ex}%		7: \LARGE
+  \or%
+    \def\newsize{\small}\def\newheight{.7ex}%		8: \huge
+  \or%
+    \def\newsize{\normalsize}\def\newheight{.7ex}%	9: \Huge
+  \else%
+    \def\newsize{\normalsize}\def\newheight{.7ex}%	10: other
+  \fi}
+
+% And finally, a pair of macros that actually take text as an argument.
+
+\newcommand{\up}[1]%
+ {\subsupadjust\raisebox{\newheight}{\newsize#1}}
+\newcommand{\dn}[1]%
+ {\subsupadjust\raisebox{-\newheight}{\newsize#1}}
+

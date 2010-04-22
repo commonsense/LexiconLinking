@@ -1,0 +1,67 @@
+
+  This file contains instructions for building the DyLP documentation from
+  source.
+
+  Before you go further, ask yourself ``Do I really want to do this?'' If all
+  you want to do is read the documentation, look at dylp.ps or dylp.pdf.
+  There's a copy of each in this directory, in the build directory, and (if
+  you've run `make install') installed in the COIN documentation directory.
+  
+  If you really want to build from source read on.
+
+  You should be able to build the dylp documentation from source, in the build
+  directory, by going to <builddir>/DyLP and typing `make doc'. There will
+  follow a massive amount of output with all sorts of warnings (latex is run
+  three times, bibtex once, and pdflatex once). Ultimately, it'll settle down
+  and you should be left with dylp.dvi, dylp.ps, and dylp.pdf. The latter two
+  come with the distribution, so dylp.dvi is the real sign of success.
+  
+  If that failed, well, read on further ...
+  
+  The dylp documentation makes heavy use of my highly customised local TeX
+  environment. In particular, I don't like Computer Modern and have gone to
+  great lengths to remove it.  I've tried to include all the necessary TeX
+  style and font files (in the TexMF subdirectory) but expect problems.
+
+  COIN distributions are set up so that they can be built in a build
+  directory, distinct from the distribution directory. This is very useful
+  for maintaining binaries for different environments, but not so critical
+  for documentation. In any event, you should be working in the DyLP/doc
+  directory in the build directory tree (the directory tree where you ran
+  configure).
+
+  LaTeX is not supported by Gnu autotools. In partial compensation, there is
+  a script, build_dylpdoc, created in the build directory from
+  build_dylpdoc.in when you ran configure. Build_dylpdoc will arrange for
+  latex and bibtex to find inputs in this directory and subdirectories.
+  It does this using hooks provided in the TeX Live distribution. (See, for
+  example, http://tug.org/texlive/). I don't have access to other TeX
+  distributions and cannot guarantee that these same hooks will work.
+
+  Makefile_dylpdoc assumes that you have latex, pdflatex, dvips, and epstopdf
+  (the latter to convert .eps files to .pdf files for figures). Replace with
+  your local equivalent if necessary.
+
+  Xdvi may have trouble locating the .vf (virtual font) files down in
+  TexMF/fonts/vf. If your version of xdvi uses kpathsea as the underlying
+  file search engine, try setting TEXMFHOME according to the value in
+  build_dylpdoc. Otherwise, you're on your own.
+
+  Build_dylpdoc will invoke make, using makefile.dylpdoc (created from
+  makefile.dylpdoc.in during configure). Makefile.dylpdoc assumes that you're
+  using Gnu make. If you're not, it will almost surely fail.
+
+  The general sequence is to build the figures in Figures, then run latex,
+  then run bibtex, then run latex two more times. By the end of all this, all
+  references should be correctly resolved. This gets DVI output; to generate
+  PDF output, a final run of pdflatex is executed.
+
+  The figures in the dylp documentation were originally created with a
+  proprietary program, IslandDraw from Island Graphics. For purposes of
+  building the documentation, the source files are Figures/*.epsu. This is
+  EPS pumped out by IslandDraw. It needs some cleanup; this is accomplished by
+  the epsupatch.sed script. The result is a clean .eps file suitable for use by
+  latex. The .eps files (and the .pdf versions required for PDF output) are
+  placed in the Figures subdirectory in the build directory tree.
+
+  							Lou Hafer, 090415

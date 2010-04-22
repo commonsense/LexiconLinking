@@ -1,0 +1,89 @@
+\documentclass[titlepage]{article}
+\usepackage{loubookman}
+\usepackage{loustandard}
+\usepackage{graphics}
+\usepackage{amsmath}
+\usepackage{loumath}
+\usepackage{codedocn}
+
+%\newcommand{\mypath}{/cs/mitacs1/lou/Bonsai/Doc/Dylp.Coin090412}
+\input{dylpabsdir}
+\newcommand{\figures}{\mypath/Figures}
+
+\newsavebox{\tmpbox}
+
+\newcommand{\bonsai}{\textbf{bonsai}\xspace}
+\newcommand{\glpk}{GLPK\xspace}
+\newcommand{\consys}{\textsc{consys}\xspace}
+\newcommand{\dylp}{\textsc{dylp}\xspace}
+\newcommand{\bonsaiG}{\textbf{bonsaiG}\xspace}
+\newcommand{\coin}{\textsc{Coin-OR}\xspace}
+
+
+\newcommand{\netlib}{Netlib\xspace}
+\newcommand{\miplib}{MIPLIB\xspace}
+
+\renewcommand{\textfraction}{.1}
+\renewcommand{\topfraction}{.9}
+\renewcommand{\bottomfraction}{\topfraction}
+
+
+\title{\bfseries \dylp: a dynamic LP code}
+\author{Lou Hafer}
+\date{December, 2005}
+
+
+\begin{document}
+
+\maketitle
+
+\thispagestyle{empty}
+\vspace*{\fill}
+
+\noindent
+Copyright (C) 2005, 2006, 2007, 2008, 2009 Lou Hafer
+
+\noindent
+This document is also available as SFU-CMPT TR 2005-18.
+
+\noindent
+All rights reserved. This documentation is made available under the terms of
+the Common Public License v1.0 which accompanies this distribution.
+A copy of the CPL v1.0 can also be obtained from the URL
+\texttt{http://www.ibm.com/developerworks/library/os-cpl.html}
+
+\begin{abstract}\noindent
+\dylp is a full implementation of the dynamic simplex algorithm for
+linear programming.
+Dynamic simplex attempts to maintain a reduced active constraint system
+by regularly
+purging loose constraints and variables with unfavourable reduced costs, and
+adding violated constraints and variables with favourable reduced costs.
+In abstract, the code alternates between primal and dual simplex algorithms,
+using dual simplex to reoptimise after updating the constraint set and primal
+simplex to reoptimise after updating the variable set.
+\end{abstract}
+
+\include{intro}
+\include{notation}
+\include{updateformulae}
+\include{pricing}
+\include{perturbed}
+\include{antidegenlite}
+\include{lpbasis}
+\include{accuracy}
+\include{scaling}
+\include{startup}
+\include{dynamic}
+\include{dual}
+\include{primal}
+\include{varmgmt}
+\include{conmgmt}
+\include{interface}
+\include{statistics}
+\include{debug}
+
+\bibliographystyle{louplain}
+\bibliography{dylp}
+
+\end{document}

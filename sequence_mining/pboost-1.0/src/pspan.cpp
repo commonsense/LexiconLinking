@@ -38,14 +38,15 @@ using namespace SeqMine;
 
 
 static bool
-parseSequenceMetaFile (const char* filename,
-	std::vector<const SeqMine::Sequence*>& S)
+parseSequenceMetaFile (const char* filename, std::vector<const SeqMine::Sequence*>& S)
 {
 	std::ifstream in (filename);
-
+	
 	/* Read in filenames
 	 */
 	S.clear ();
+	
+
 
 	for (unsigned int seqId = 0 ; in.eof () == false ; ++seqId) {
 		char seqFilename[256];
@@ -57,9 +58,11 @@ parseSequenceMetaFile (const char* filename,
 			break;
 
 		std::cout << "  reading \"" << seqFilename << "\"" << std::endl;
-
+		std::cout << "done 1" << std::endl;
 		SequenceT* seq = SequenceT::readFromFile (seqFilename);
+		std::cout << "done 1" << std::endl;
 		seq->Occurence.insert (seqId);
+		std::cout << "done 1" << std::endl;
 		S.push_back (seq);
 	}
 	in.close ();
@@ -84,7 +87,6 @@ main (int argc, char* argv[])
 	 */
 	std::string outputFilename;
 	std::string projectFilename;
-	unsigned int buildLexicon;
 	unsigned int topK;
 	unsigned int dspcaBasisNonZero;
 	unsigned int dspcaBasisCount;
@@ -95,8 +97,6 @@ main (int argc, char* argv[])
 
 	po::options_description config ("Parameters");
 	config.add_options ()
-		("lexicon,L", po::value<std::string>(&buildLexicon)>default_value (0),
-			"Build a lexicon.")
 		("output", po::value<std::string>(&outputFilename)->default_value ("output.txt"),
 			"Frequent subsequence output file")
 		("project,p", po::value<std::string>(&projectFilename),
@@ -193,9 +193,6 @@ main (int argc, char* argv[])
 
 	std::vector<std::pair<unsigned int, SequenceT> > subseq;
 	PrefixSpanOptions poptions (minsup, length_min, length_max, maxgap);
-    if vm.count ("lexicon") {
-        std::cout << "Running lexicon builder\n";
-    }
 
 	if (vm.count ("dspca") == 0) {
 		if (minsup_mode) {

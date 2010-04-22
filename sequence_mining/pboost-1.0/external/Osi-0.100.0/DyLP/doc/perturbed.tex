@@ -1,0 +1,85 @@
+\section{Anti-Degeneracy Using a Perturbed Subproblem}
+\label{sec:PerturbedAntiDegeneracy}
+
+In both primal and dual simplex, \dylp implements an anti-degeneracy
+algorithm using a perturbed subproblem.
+It builds on a method described by Ryan \& Osborne \cite{Rya88}
+in which all variables are assumed to have lower bounds
+of zero and upper bounds of infinity.
+
+The original algorithm is easily described in terms of the primal problem.
+When degeneracy is detected, a restricted subproblem is formed consisting only
+of the constraints involved in the degeneracy (\ie, constraints $i$ such that
+$\overline{b}_i = 0$).
+The values $\overline{b}_i$ are given (relatively) large perturbations and
+pivots are performed within the context of the restricted subproblem until a
+direction of recession from the degenerate vertex is found (indicated by
+apparent unboundedness).
+The original unperturbed values of $\overline{b}_i$ are then restored (since
+all pivots were, in actuality, simply changes of basis while remaining at the
+degenerate vertex) and the full problem is resumed.
+
+An alternative view goes directly back to the constraints involved in
+the degeneracy.
+By perturbing their right-hand-side values $b_i$, the single vertex formed by
+the constraints is fractured into many vertices.
+For the simple case of $0 \leq x \leq \infty$, we have
+$\overline{b} = B^{\,-1} b$, so perturbing $\overline{b}$ by the vector
+$\xi$ is equivalent to perturbing $b$ by the vector $-B\xi$.
+
+In dual simplex, this algorithm can be implemented directly.
+The restricted subproblem is formed from the dual constraints (primal columns)
+corresponding to basic dual variables (primal reduced costs) whose value
+is zero.
+The perturbation is introduced directly to the values $\overline{c}_j$,
+taking care to maintain dual feasibility.
+The perturbation is maintained by the incremental update of the dual variables
+and reduced costs after each pivot.
+When accuracy checks are performed, the correct value of zero can be
+substituted on the fly for the perturbed values.
+
+The trick to implementing this algorithm in the context of variables with
+arbitrary upper and lower bounds is to distinguish between apparent motion
+due to the introduced perturbations and real motion (along a direction of
+recession) which is nonetheless limited by a bound on a variable.
+\dylp uses an array, \pgmid{dy_brkout}, to record the direction of
+change (away from the current bound) required for nondegenerate but
+bounded motion.
+
+A second, more subtle problem, is that the perturbation for a given variable
+must be sufficiently small to avoid a false indication of a nondegenerate
+pivot.
+\dylp scales the perturbation to be at most $.001(u_i - l_i)$, but there is
+no easy way to guarantee that this is sufficiently small.
+Consider two variables $x_i$ and $x_k$, and assume that they occupy rows
+$i$ and $k$ in the basis, with perturbed values
+$\tilde{b}_i$ and $\tilde{b}_k$, respectively.
+For concreteness, assume that each was originally degenerate at its lower
+bound, so that a pivot which resulted in one variable leaving at its upper
+bound would be nondegenerate.
+For $\overline{a}_{ij}$ and $\overline{a}_{kj}$ of appropriate sign to move
+$x_i$ toward $l_i$ and $x_k$ toward $u_k$, given a situation where
+$|\overline{a}_{ij}| \ll |\overline{a}_{kj}|$, it is not possible to assure
+that
+\begin{displaymath}
+\frac{\tilde{b}_i - l_i}{\overline{a}_{ij}} <
+\frac{u_k - \tilde{b}_k}{\overline{a}_{kj}}
+\end{displaymath}
+without actually testing each pair.
+In this case, the perturbation introduced for $x_i$ is too large, and the
+resulting $\Delta_{ij}$ \textit{appears} to allow $x_k$ to become the limiting
+variable, leaving the basis with a bounded but nondegenerate change.
+When \dylp detects this problem, it will reduce the perturbation by a factor
+of 10 and form the restricted subproblem again.
+If a (small) limit on the number of attempts is exceeded, \dylp simply gives
+up and takes a degenerate pivot.
+
+A second problem occurs when a perturbation is so small as to be
+indistinguishable next to the bound.
+Specifically, the test to determine if a variable $x_i$ is at bound is
+$\pgmid{dy_tols.zero}(1+|\mathit{bnd}_i|) < |x_i - \mathit{bnd}_i|$.
+If $\mathit{bnd}_i$ is large, the perturbation can be swamped.
+This situation can arise if $u_i$ and $l_i$ as given to \dylp are nearly equal,
+or due to reduction of the perturbation as described in the previous
+paragraph.
+

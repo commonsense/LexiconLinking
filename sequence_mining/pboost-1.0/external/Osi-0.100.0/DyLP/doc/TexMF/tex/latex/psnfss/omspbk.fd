@@ -1,0 +1,46 @@
+%Filename: OMSpbk.fd
+%Created by: tex pbkmath
+%Created using fontinst v1.504
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{OMSpbk.fd}
+   [1996/07/31 Fontinst v1.504 font definitions for OMS/pbk.]
+
+\DeclareFontFamily{OMS}{pbk}{}
+
+\DeclareFontShape{OMS}{pbk}{l}{n}{
+   <-> pbkl7y
+}{}
+
+\DeclareFontShape{OMS}{pbk}{l}{it}{
+   <-> pbkli7y
+}{}
+
+\DeclareFontShape{OMS}{pbk}{db}{n}{
+   <-> pbkd7y
+}{}
+
+\DeclareFontShape{OMS}{pbk}{db}{it}{
+   <-> pbkdi7y
+}{}
+
+\DeclareFontShape{OMS}{pbk}{b}{n}{<->ssub * pbk/db/n}{}
+\DeclareFontShape{OMS}{pbk}{bx}{n}{<->ssub * pbk/b/n}{}
+\DeclareFontShape{OMS}{pbk}{b}{sc}{<->ssub * pbk/db/sc}{}
+\DeclareFontShape{OMS}{pbk}{bx}{sc}{<->ssub * pbk/b/sc}{}
+\DeclareFontShape{OMS}{pbk}{b}{sl}{<->ssub * pbk/b/n}{}
+\DeclareFontShape{OMS}{pbk}{bx}{sl}{<->ssub * pbk/b/sl}{}
+\DeclareFontShape{OMS}{pbk}{b}{it}{<->ssub * pbk/db/n}{}
+\DeclareFontShape{OMS}{pbk}{bx}{it}{<->ssub * pbk/b/it}{}
+\DeclareFontShape{OMS}{pbk}{b}{ui}{<->ssub * pbk/db/n}{}
+\DeclareFontShape{OMS}{pbk}{bx}{ui}{<->ssub * pbk/b/ui}{}
+\DeclareFontShape{OMS}{pbk}{m}{n}{<->ssub * pbk/l/n}{}
+\DeclareFontShape{OMS}{pbk}{m}{sc}{<->ssub * pbk/l/sc}{}
+\DeclareFontShape{OMS}{pbk}{m}{it}{<->ssub * pbk/l/it}{}
+\DeclareFontShape{OMS}{pbk}{l}{sl}{<->ssub * pbk/l/it}{}
+\DeclareFontShape{OMS}{pbk}{m}{sl}{<->ssub * pbk/l/sl}{}
+\DeclareFontShape{OMS}{pbk}{l}{ui}{<->sub * pbk/l/it}{}
+\DeclareFontShape{OMS}{pbk}{m}{ui}{<->ssub * pbk/l/ui}{}
+
+\endinput

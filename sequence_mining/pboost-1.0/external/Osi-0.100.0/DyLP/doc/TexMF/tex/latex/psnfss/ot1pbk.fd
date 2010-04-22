@@ -1,0 +1,36 @@
+%Filename: OT1pbk.fd
+%Created by: tex pbkmath
+%Created using fontinst v1.504
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{OT1pbk.fd}
+   [1996/07/31 Fontinst v1.504 font definitions for OT1/pbk.]
+
+\DeclareFontFamily{OT1}{pbk}{}
+
+\DeclareFontShape{OT1}{pbk}{l}{n}{
+   <-> pbkl7t
+}{}
+
+\DeclareFontShape{OT1}{pbk}{l}{i}{
+   <-> pbkli7t
+}{}
+
+\DeclareFontShape{OT1}{pbk}{db}{n}{
+   <-> pbkd7t
+}{}
+
+\DeclareFontShape{OT1}{pbk}{db}{i}{
+   <-> pbkdi7t
+}{}
+
+
+\DeclareFontShape{OT1}{pbk}{m}{n}{<->ssub * pbk/l/n}{}
+\DeclareFontShape{OT1}{pbk}{m}{i}{<->ssub * pbk/l/i}{}
+\DeclareFontShape{OT1}{pbk}{b}{n}{<->ssub * pbk/db/n}{}
+\DeclareFontShape{OT1}{pbk}{bx}{n}{<->ssub * pbk/b/n}{}
+\DeclareFontShape{OT1}{pbk}{b}{i}{<->ssub * pbk/db/i}{}
+\DeclareFontShape{OT1}{pbk}{bx}{i}{<->ssub * pbk/b/i}{}
+
+\endinput

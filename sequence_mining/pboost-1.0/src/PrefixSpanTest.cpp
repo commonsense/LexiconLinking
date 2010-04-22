@@ -47,9 +47,12 @@ main (int argc, char* argv[])
 	S.push_back (&s20);
 	S.push_back (&s30);
 	S.push_back (&s40);
-
-	PrefixSpan pspan = PrefixSpan (2, 0);
+  PrefixSpanOptions poptions (1, 1, 10, -1);
+	PrefixSpan pspan = PrefixSpan (poptions);
 	pspan.Mine (S);
+
+
+	return 0;
 }
 
 

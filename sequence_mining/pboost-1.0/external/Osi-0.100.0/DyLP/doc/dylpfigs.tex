@@ -1,0 +1,56 @@
+\documentclass[titlepage]{article}
+\usepackage{graphics}
+\usepackage{loustandard}
+\usepackage{loubookman}
+
+%\newcommand{\mypath}{/cs/mitacs1/lou/Bonsai/Doc/Dylp.Coin}
+\input{dylpabsdir}
+\newcommand{\figures}{\mypath/Figures}
+
+\newcommand{\dylp}{\textsc{dylp}\xspace}
+
+\begin{document}
+
+\markright{\dylp Figures}
+
+\begin{figure}
+\begin{center}
+\includegraphics{\figures/dylpnormalflow}
+\end{center}
+\caption{\dylp normal execution flow}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics{\figures/dualerrorflow}
+\end{center}
+\caption{\dylp dual simplex error recovery}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics{\figures/primalerrorflow}
+\end{center}
+\caption{\dylp primal simplex error recovery}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\scalebox{.9}{\includegraphics{\figures/dual2flow}}
+\end{center}
+\caption{Dual Phase II Algorithm Flow} \label{fig:DualPhaseIIFlow}
+\end{figure}
+
+\begin{figure}
+\centering
+\scalebox{.85}{\includegraphics{\figures/primal1flow}}
+\caption{Primal Phase I Algorithm Flow} \label{fig:PrimalPhaseIFlow}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics{\figures/primal2flow}
+\caption{Primal Phase II Algorithm Flow} \label{fig:PrimalPhaseIIFlow}
+\end{figure}
+
+\end{document}

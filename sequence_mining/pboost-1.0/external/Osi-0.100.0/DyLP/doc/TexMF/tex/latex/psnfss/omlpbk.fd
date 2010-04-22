@@ -1,0 +1,35 @@
+%Filename: OMLpbk.fd
+%Created by: tex pbkmath
+%Created using fontinst v1.504
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{OMLpbk.fd}
+   [1996/07/31 Fontinst v1.504 font definitions for OML/pbk.]
+
+\DeclareFontFamily{OML}{pbk}{\skewchar \font =127}
+
+\DeclareFontShape{OML}{pbk}{l}{it}{
+   <-> pbkli7m
+}{}
+
+\DeclareFontShape{OML}{pbk}{db}{it}{
+   <-> pbkdi7m
+}{}
+
+\DeclareFontShape{OML}{pbk}{l}{ui}{<->sub * pbk/l/it}{}
+\DeclareFontShape{OML}{pbk}{m}{ui}{<->ssub * pbk/l/ui}{}
+\DeclareFontShape{OML}{pbk}{db}{ui}{<->sub * pbk/db/it}{}
+\DeclareFontShape{OML}{pbk}{b}{n}{<->ssub * pbk/db/n}{}
+\DeclareFontShape{OML}{pbk}{bx}{n}{<->ssub * pbk/b/n}{}
+
+\DeclareFontShape{OML}{pbk}{m}{it}{<->ssub * pbk/l/it}{}
+\DeclareFontShape{OML}{pbk}{l}{sl}{<->ssub * pbk/l/it}{}
+\DeclareFontShape{OML}{pbk}{m}{sl}{<->ssub * pbk/l/sl}{}
+\DeclareFontShape{OML}{pbk}{b}{it}{<->ssub * pbk/db/it}{}
+\DeclareFontShape{OML}{pbk}{bx}{it}{<->ssub * pbk/b/it}{}
+\DeclareFontShape{OML}{pbk}{db}{sl}{<->ssub * pbk/db/it}{}
+\DeclareFontShape{OML}{pbk}{b}{sl}{<->ssub * pbk/db/sl}{}
+\DeclareFontShape{OML}{pbk}{bx}{sl}{<->ssub * pbk/b/sl}{}
+
+\endinput

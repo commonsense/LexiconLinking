@@ -1,0 +1,148 @@
+
+\section{\dylp Statistics}
+\label{DylpStatistics}
+
+\dylp will collect detailed statistics if the conditional compilation
+symbol \pgmid{DYLP_STATISTICS} is defined.
+The available statistics are described briefly in the paragraphs which
+follow; for details on subfields, consult \coderef{dylp.h}{}.
+Routines in the file \coderef{statistics.c}{} provide initialisation
+(\pgmid{dy_initstats}), printing (\pgmid{dy_dumpstats}), and release of the
+data structure (\pgmid{dy_freestats}).
+
+\begin{codedoc}
+  \item
+  \Varhdr{angle}{max, min, hist}
+  Statistics on the angles of inequality constraints to the objective function.
+  For constraint $i$, this is calculated as
+  $\displaystyle \frac{180}{\pi} \cos^{-1} \frac{a_i c}{\norm{a_i}\norm{c}}$.
+  The maximum and minimum angle is recorded, and a histogram in
+  $\degs{5}$ increments with a dedicated $\degs{90}$ bin.
+
+  \item
+  \Varhdr{cons}{sze, angle, actcnt, deactcnt, init, fin}
+  Information about individual constraints: the angle of the constraint with
+  the objective function, the number of times it's activated and deactivated,
+  and booleans to indicate if the constraint is active in the initial and final
+  active systems.
+
+  \item\Varhdr{d2}{pivs, iters}
+  Total pivot and iteration counts for \dylp.
+  The pivot count is the number of successful simplex pivots.
+  The iteration count also includes pivot attempts which did not succeed
+  for some reason
+  (\eg, a primal pivot in which the entering variable was eventually rejected
+  because the pivot element was numerically unstable).
+
+  \item\Varhdr{ddegen}{cnt, avgsiz, maxsiz, totpivs, avgpivs, maxpivs}
+  Statistics on the amount of time spent in restricted subproblems trying to
+  escape dual degeneracy.
+
+  For each level (\ie, each nested level of restricted subproblem), \dylp
+  records the number of times this level was reached, the average and maximum
+  number of variables involved in a degeneracy, the total and average
+  number of pivots executed at this level, and the maximum number of pivots
+  executed in any one subproblem at this level.
+  The array is generously sized (by compile time constant) to accommodate
+  a maximum of 25 levels.
+
+  \item\Varhdr{dmulti}%
+	      {flippable, cnt, cands, promote, nontrivial, evals, flips,
+	       pivrnks, maxrnk}
+  Statistics on the behaviour of the generalised dual pivoting algorithm.
+  Each call to \pgmid{dualmultiin} collects a list of candidate variables to
+  enter the basis and sorts the list.
+  This process may produce a unique candidate for entry, or it may leave a list
+  of requiring further evaluation to determine the best sequence of flips and
+  final pivot.
+
+  The \pgmid{flippable} field records the number of flippable variables in the
+  problem (\ie, variables with finite lower and upper bounds).
+  The \pgmid{cnt} field records the total number of calls to
+  \pgmid{dualmultiin}, and \pgmid{nontrivial} records the number of times
+  the initial scan and sort did not identify a unique entering variable.
+
+  The remaining fields, with one exception, are totals.
+  They record the number of candidates queued for evaluation,
+  the number of times that a sane pivot was promoted over an unstable pivot,
+  the number of columns transformed ($B^{-1}a_k$) for evaluation,
+  the number of bound-to-bound flips,
+  the rank in the sorted list of the variable selected to
+  enter, and the maximum rank for a variable selected to enter.
+
+
+  \item\Varhdr{factor}{cnt, prevpiv, avgpivs, maxpivs}
+  Statistics about basis factoring.
+  The \pgmid{cnt} field records the total number of times the basis was
+  refactored.
+  The \pgmid{avgpivs} and \pgmid{maxpivs} fields record the average and maximum
+  number of pivots between basis refactoring.
+
+  \item\Varhdr{infeas}{prevpiv, maxcnt, totpivs, maxpivs, chgcnt1, chgcnt2}
+  Statistics on the resolution of infeasibility during primal phase I.
+
+  The maximum number of infeasible variables is recorded, as well as the total
+  pivots in phase I and the maximum number of pivots with no change in the
+  number of infeasible variables.
+  \dylp also counts the number of times that the number of infeasible variables
+  changed without requiring recalculation of the reduced costs
+  (\pgmid{chgcnt1}), and the number of times when it did (\pgmid{chgcnt2}).
+  Specifically, if exactly one variable gains feasibility, and it leaves the
+  basis as it does so, the reduced costs do not have to be recalculated.
+
+  \item\Varhdr{p1}{pivs, iters}
+  Total pivot and iteration counts for primal phase~1 simplex.
+
+  \item\Varhdr{p2}{pivs, iters}
+  Total pivot and iteration counts for primal phase~2 simplex.
+
+  \item\Varhdr{pdegen}{cnt, avgsiz, maxsiz, totpivs, avgpivs, maxpivs}
+  Statistics on the amount of time spent in restricted subproblems trying to
+  escape primal degeneracy.
+  The content of individual fields is as for \pgmid{ddgen}.
+
+  \item\Varhdr{pivrej}%
+	      {max, mad, sing, pivtol_red, min_pivtol, puntcall, puntret}
+  Statistics on the management of variables judged unsuitable for pivoting.
+  Variables are queued on the rejected pivot list when a pivot attempt fails
+  because the pivot element is numerically unstable or because the pivot
+  produced a singular basis.
+  During primal simplex, candidate entering variables are queued; during dual
+  simplex, candidate leaving variables.
+
+  The \pgmid{max} field records the maximum length of the rejected pivot list.
+  The fields \pgmid{mad} and \pgmid{singular} record the number of variables
+  queued for unstable pivots and singular basis, respectively.
+
+  The \pgmid{puntcall} field records the number of times the routine
+  \pgmid{dy_dealWithPunt} was called in an attempt to remove variables from the
+  rejected pivot list.
+  The \pgmid{pivtol_red} field records the number of times that the pivot
+  selection multiplier was reduced in order to consider candidate variables
+  previously rejected for numeric instability; \pgmid{min_pivtol} is the
+  minimum multiplier value used.
+  The \pgmid{puntret} field records the number of times \pgmid{dy_dealWithPunt}
+  was unable to remove any candidates from the rejected pivot list and
+  therefore recommended termination of the current simplex phase.
+
+  \item\Varhdr{pmulti}{cnt, cands, nontrivial, promote}
+  Statistics on the behaviour of the extended primal pivoting algorithm.
+  Each call to \pgmid{primalmultiout} collects a list of candidate variables to
+  leave the basis.
+  This process may produce a unique candidate to leave, or it may leave a list
+  of candidates requiring further evaluation to determine the final pivot.
+
+  The \pgmid{cnt} field records the total number of calls to
+  \pgmid{primalmultiout}, and \pgmid{nontrivial} records the number of times
+  the initial scan did not identify a unique leaving variable.
+  The \pgmid{promote} field records the number of times
+  that a sane pivot was promoted over an unstable pivot,
+
+  \item\Varhdr{tot}{pivs, iters}
+  Total pivot and iteration counts for the call to \pgmid{dylp}.
+
+  \item\Varhdr{vars}{sze, actcnt, deactcnt}
+  Information about individual variables: the number of times a variable is
+  activated and deactivated.
+\end{codedoc}
+

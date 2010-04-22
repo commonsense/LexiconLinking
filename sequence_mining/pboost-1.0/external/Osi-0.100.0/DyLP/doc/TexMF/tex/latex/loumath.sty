@@ -1,0 +1,108 @@
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{loumath}[1998/09/09 v2.0 Lou Hafer Math macros]
+
+\RequirePackage{theorem}
+\RequirePackage{amssymb}
+
+% Retool theorem, definition, etc., to be more to my liking.
+
+\theoremheaderfont{\bfseries\scshape}
+\theorembodyfont{\rmfamily}
+
+\newcommand{\thmref}[1]{Theorem~\ref{#1}}
+\newcommand{\propref}[1]{Proposition~\ref{#1}}
+\newcommand{\corref}[1]{Corollary~\ref{#1}}
+
+% I originally used \labelsep to separate `Proof' from the start of the text.
+% Unfortunately, this tends to screw up nested list environments, so I changed
+% to adding the space directly, as part of the label. Because this isn't used
+% as an enumerated list environment, nested enumerated lists look better if the
+% list depth isn't incremented. The hack at the end of the proof environment
+% to print a black square, right-justified & pushed to the next line only
+% if necessary, comes from p.106 of the TeX Book.
+
+\newenvironment{proof}
+  {\begin{list}{\textsc{Proof.\hspace{4ex}}}%
+     {\setlength{\leftmargin}{0pt}%
+      \setlength{\labelwidth}{0pt}%
+      \setlength{\itemindent}{\labelsep}%
+      \setlength{\listparindent}{\parindent}%
+      \global\advance\@listdepth\m@ne}%
+   \item\relax}
+  {\unskip\nobreak\hfil\penalty50\hskip1em\hbox{}\nobreak\hfill$\blacksquare$%
+   \global\advance\@listdepth\@ne%
+   \end{list}}
+
+\newenvironment{definition*}
+  {\begin{list}{\textsc{\bfseries Definition.}}%
+     {\setlength{\leftmargin}{0pt}%
+      \setlength{\labelwidth}{0pt}%
+      \setlength{\labelsep}{4ex}%
+      \setlength{\itemindent}{\labelsep}}%
+   \item}
+  {\end{list}}
+
+% Redid the norm, abs, floor, and ceil macros so that they'll automatically
+% choose reasonable delimiters. Not so easy as I thought it'd be.
+
+\newlength{\loumath@tmpA}
+\newlength{\loumath@tmpB}
+\newsavebox{\loumath@bxA}
+
+% All this work is necessary so that we can decide whether to try for simple
+% characters or the constructed delimiters. The trouble is that the smallest
+% of the constructed delimiters is just a bit too big for your typical
+% trivial use --- \norm{x} just doesn't look right with \left\| and \right\|
+% surrounding it; you need \|x\|. It'd all go relatively easily except that
+% we have to get the math mode right when we build the inner formula in a
+% box to measure its height. Once that rears its ugly head, it just keeps
+% getting worse. The \with@delims macro is probably a bit more general than
+% it needs to be, but it was interesting to craft it up.
+
+\newcommand{\with@delims}[7]%
+{\sbox{\loumath@bxA}{\ensuremath{#1 #4}}%
+ \settoheight{\loumath@tmpA}{\usebox{\loumath@bxA}}%
+ \settodepth{\loumath@tmpB}{\usebox{\loumath@bxA}}%
+ \addtolength{\loumath@tmpA}{\loumath@tmpB}%
+ \ifthenelse{\lengthtest{\loumath@tmpA > 1.1\baselineskip}}%
+ {\left#2%
+  \usebox{\loumath@bxA}%
+  \right#6_{\kern -.09em \raisebox{-.4ex}{$\scriptscriptstyle #7$}}}%
+ {#3%
+  \usebox{\loumath@bxA}%
+  #5_{\raisebox{-.4ex}{$\scriptscriptstyle #7$}}}}
+
+% vector norm, with optional argument to specify type of norm. Also absolute
+% value, floor, and ceiling.
+
+\newcommand{\norm}[2][]%
+{\mathchoice{\with@delims{\displaystyle}{\|}{\|}{#2}{\|}{\|}{#1}}
+	    {\with@delims{\textstyle}{\|}{\|}{#2}{\|}{\|}{#1}}
+	    {\with@delims{\scriptstyle}{\|}{\|}{#2}{\|}{\|}{#1}}
+	    {\with@delims{\scriptscriptstyle}{\|}{\|}{#2}{\|}{\|}{#1}}}
+
+\newcommand{\abs}[1]%
+{\mathchoice%
+  {\with@delims{\displaystyle}{|}{|}{#1}{|}{|}{}}
+  {\with@delims{\textstyle}{|}{|}{#1}{|}{|}{}}
+  {\with@delims{\scriptstyle}{|}{|}{#1}{|}{|}{}}
+  {\with@delims{\scriptscriptstyle}{|}{|}{#1}{|}{|}{}}}
+
+\newcommand{\floor}[1]%
+{\mathchoice%
+  {\with@delims{\displaystyle}{\lfloor}{\lfloor}{#1}{\rfloor}{\rfloor}{}}
+  {\with@delims{\textstyle}{\lfloor}{\lfloor}{#1}{\rfloor}{\rfloor}{}}
+  {\with@delims{\scriptstyle}{\lfloor}{\lfloor}{#1}{\rfloor}{\rfloor}{}}
+  {\with@delims{\scriptscriptstyle}{\lfloor}{\lfloor}{#1}{\rfloor}{\rfloor}{}}}
+
+\newcommand{\ceil}[1]%
+{\mathchoice%
+  {\with@delims{\displaystyle}{\lceil}{\lceil}{#1}{\rceil}{\rceil}{}}
+  {\with@delims{\textstyle}{\lceil}{\lceil}{#1}{\rceil}{\rceil}{}}
+  {\with@delims{\scriptstyle}{\lceil}{\lceil}{#1}{\rceil}{\rceil}{}}
+  {\with@delims{\scriptscriptstyle}{\lceil}{\lceil}{#1}{\rceil}{\rceil}{}}}
+
+% Matrix transpose
+
+\newcommand{\trans}[1]{\ensuremath{#1^\top}}

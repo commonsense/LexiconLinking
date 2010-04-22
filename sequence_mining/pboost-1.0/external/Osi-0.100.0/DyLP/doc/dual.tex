@@ -1,0 +1,465 @@
+\section{Dual Simplex}
+
+\dylp will choose dual simplex whenever the current basic solution is dual
+feasible but not primal feasible.
+The primary role of dual simplex in \dylp is reoptimisation following
+the addition of violated constraints.
+The implementation reflects this role and does not provide a dual phase~I for
+achieving dual feasibility.
+The dual simplex implementation incorporates dual steepest edge (DSE)
+pricing (\secref{sec:DSEPricing}),
+standard (\secref{sec:DualStdSelectInVar}) and
+generalised (\secref{sec:DualGenSelectInVar}) pivoting, and
+perturbation-based (\secref{sec:PerturbedAntiDegeneracy}) and
+alignment-based (\secref{sec:AntiDegenLite})
+antidegeneracy algorithms.
+
+Because the dual simplex implementation does not provide a phase~I,
+a number of exceptional conditions will cause
+\dylp fall back from dual simplex to primal simplex.
+
+In dynamic simplex, apparent primal infeasibility can result because only a
+subset of the variables are present in the active constraint system.
+In some cases, the variables needed to regain feasibility cannot be activated
+into the nonbasic partition while maintaining dual feasibility.
+In the context of the dual problem, the problem is unbounded and any
+dual constraint which would bound it would also make the current basic
+solution dual infeasible.
+\dylp implements a variable activation procedure which can pivot a
+single variable into the basis as it is activated in order to maintain dual
+feasibilty.
+It is still possible, however, to reach a basic solution where multiple
+pivots are required to regain dual feasibility for any candidate variable.
+When this occurs, \dylp reverts to primal simplex.
+
+If primal infeasible variables remain but they cannot be pivoted because
+their pivot coefficients do not satisfy the current pivot selection tolerances,
+\pgmid{dy_dual} will punt and \dylp will return to phase~I of the primal
+simplex algorithm in the hope that addition of variables and/or the
+application of primal pivoting rules will allow pivoting to continue.
+In addition, if the dual simplex terminates due to stalling or loss of
+feasibility, \dylp will try the primal simplex algorithm before giving up.
+
+Figure \ref{fig:DualCallGraph} shows the call structure of the dual simplex
+implementation.
+\begin{figure}[htb]
+\centering
+\includegraphics{\figures/dualcalls}
+\caption{Call Graph for Dual Simplex} \label{fig:DualCallGraph}
+\end{figure}
+
+\subsection{Dual Top Level}
+
+Dual simplex is executed when the dynamic simplex state machine enters state
+\pgmid{dyDUAL}.
+If required, DSE pricing is initialised by calculating the square of the
+norms of the rows of the basis inverse (\vid \secref{sec:DSEPricing})
+and the dual simplex routine \pgmid{dy_dual} is called.
+\pgmid{dy_dual} is a trivial shell which calculates
+the objective (\pgmid{dy_calcobj}) and calls the dual phase~II
+routine \pgmid{dual2} to do the optimisation.
+
+\subsection{Dual Phase II}
+
+The overall flow of phase~II of the dual algorithm is shown in Figure
+\ref{fig:DualPhaseIIFlow}.
+\begin{figure}[htbp]
+\begin{center}
+\scalebox{.9}{\includegraphics{\figures/dual2flow}}
+\end{center}
+\caption{Dual Phase II Algorithm Flow} \label{fig:DualPhaseIIFlow}
+\end{figure}
+The body of the routine is structured as two nested loops.
+The outer loop handles startup and termination, and the inner loop handles
+the majority of routine pivots.
+
+On entry to \pgmid{dual2}, the outer loop is entered and \pgmid{dy_dualout}
+is called to select the initial leaving variable.
+Then the inner loop is entered and \pgmid{dy_dualpivot} is called to perform
+the pivot.
+\pgmid{dy_dualpivot} (\vid \secref{sec:DualPivoting}) will
+calculate the coefficients of the pivot row (\pgmid{dualpivrow}),
+select an entering variable (\pgmid{dualin}),
+pivot the basis (\pgmid{dy_pivot}),
+update the primal and dual variables (\pgmid{dualupdate}),
+and update the DSE pricing information and reduced costs (\pgmid{dseupdate}).
+For a routine pivot, \pgmid{dseupdate} will also select a leaving variable
+for the next pivot.
+\pgmid{dy_duenna} evaluates the outcome of the pivot, handles error detection
+and recovery where possible, and performs the routine maintenance activities
+of accuracy checks and refactoring of the basis.
+If there are no problems, the pivoting loop iterates, using the leaving
+variable selected in \pgmid{dseupdate}.
+The loop continues until optimality is reached, the problem is determined to
+be primal infeasible (dual unbounded), or an exception or fatal error occurs.
+
+One common reason for a failure to select a leaving variable for the next
+pivot is that the current pivot was aborted due to numerical problems
+(an unsuitable pivot coefficient being the most common of these).
+In this case, \pgmid{dseupdate} never executes.
+Once \pgmid{dy_duenna} has taken the necessary corrective action, the flow
+of control escapes to the outer loop and calls \pgmid{dy_dualout} to select
+a new leaving variable.
+
+Another common reason for failure to select a leaving variable is that all
+candidates were previously flagged as unsuitable pivots.
+In this case, \pgmid{dy_dualout} will indicate a `punt' and
+\pgmid{dy_dealWithPunt} will be called to reevaluate the flagged variables.
+If it is able to make new candidates available, control returns to
+\pgmid{dy_dualout} for another attempt to find a leaving variable.
+If all flagged variables remain unsuitable, control flow moves to the
+preoptimality actions with an indication that dual simplex has punted.
+
+When \pgmid{dy_dualout} indicates optimality (primal feasibility) or
+\pgmid{dy_dualpivot} indicates optimality, dual unboundedness (primal
+infeasibility), or loss of dual feasibility,
+the inner loop ends and \pgmid{preoptimality} is called for confirmation.
+\pgmid{preoptimality} will refactor the basis, check for accuracy, recompute
+the primal and dual variables, and confirm dual and primal feasibility status.
+If there are no surprises, dual phase~II terminates with an indication of
+optimality, dual unboundedness, or loss of dual feasibility.
+
+Loss of dual feasibility stems from loss of numeric accuracy, but it cannot
+be corrected within dual phase~II.
+The error recovery actions taken by the dynamic simplex algorithm are described
+in \secref{sec:ErrorRecovery}.
+
+Loss of primal feasibility can occur for two distinct reasons.
+In the less common case, loss of primal feasibility stems from loss of numeric
+accuracy.
+The pivot selection rules are tightened and dual simplex iterations
+are resumed.
+When the number of false indications of optimality exceeds a hard-coded limit
+(currently 15), dual simplex terminates with a fatal error.
+
+The more common reason for apparent loss of primal feasibility at the
+termination of dual simplex is that it is ending with a punt, as
+described above.
+The variables flagged as unsuitable for pivoting are not primal feasible, and
+when the flags are removed to perform the preoptimality checks, primal
+feasibility is revealed as an illusion.
+No further action is possible within dual simplex; the reader is again referred
+to \secref{sec:ErrorRecovery}.
+
+Other errors (\eg, stalling, accuracy checks, \etc) not shown in
+Figure~\ref{fig:DualPhaseIIFlow} can occur and result in termination of the
+dual simplex algorithm with the appropriate error indication.
+
+\subsection{Pivoting}
+\label{sec:DualPivoting}
+
+\dylp offers two flavours of dual pivoting: A standard dual pivot algorithm in
+which a single primal variable is selected and pivoted into the basis, and a
+generalised dual pivot algorithm \cite[\S10.2]{Mar03} in which multiple primal
+variables may undergo bound-to-bound flips prior to the basis pivot.
+The choice of standard or generalised dual pivoting can be controlled with an
+option; \dylp will use generalised pivoting by default.
+
+Figure~\ref{fig:DualPivotCallGraph} shows the call structure of the dual
+pivot algorithm.
+The routine \pgmid{dualin} implements standard dual pivoting;
+\pgmid{dualmultin} implements generalised dual pivoting.
+
+\begin{figure}[htb]
+\centering
+\includegraphics{\figures/dualpivcalls}
+\caption{Call Graph for Dual Pivoting} \label{fig:DualPivotCallGraph}
+\end{figure}
+
+The first activity in \pgmid{dy_dualpivot} is the calculation of the
+coefficients of the pivot row, $\overline{a}_{i} = \beta_i N$, by the routine
+\pgmid{dualpivrow}.
+With the leaving primal variable and the basis inverse row in hand, one of
+\pgmid{dy_dualin} or \pgmid{dualmultiin} are called to select the entering
+variable.
+(If generalised dual pivoting is in use, \pgmid{dualmultiin} will perform
+any bound-to-bound flips before returning.)
+
+Once the entering and leaving variables have been chosen, the actual pivot
+is performed in several steps.
+Prior to the pivot, the vector $\tau = B^{\,-1}\beta^T_k$ is calculated for
+use during the update of the DSE pricing information.
+The basis is pivoted next; this involves calls to \pgmid{dy_ftran} and
+\pgmid{dy_pivot}, as outlined in \secref{sec:BasisPivoting}.
+If the basis change succeeds, the primal and dual variables are updated by
+\pgmid{dualupdate} using the iterative update formul\ae{} of
+\secref{sec:UpdatingFormulas}, and then the DSE pricing information
+and reduced
+costs are updated by \pgmid{dseupdate}, using the update formul\ae{} of
+\secref{sec:DSEPricing}.
+As a side effect, \pgmid{dseupdate} will select a leaving variable for the
+next pivot.
+
+\subsection{Selection of the Leaving Variable}
+
+The selection of the leaving primal variable $x_i$ (entering dual
+variable $y_i$) is made using the dual steepest edge criterion
+described in \secref{sec:DSEPricing}.
+As outlined above, the normal case is that the leaving variable for the
+following pivot will
+be selected as \pgmid{dseupdate} updates the DSE pricing information
+for the current pivot.
+In various exceptional circumstances where this does not occur, the routine
+\pgmid{dy_dualout} is called to make the selection.
+
+\subsection{Standard Dual Pivot}
+\label{sec:DualStdSelectInVar}
+
+For the standard dual pivot algorithm, the selection of the entering
+primal variable (leaving dual variable) is
+made using the usual dual pivoting rules and a set of tie-breaking strategies.
+
+Let $x_i$ be the leaving primal variable, for simplicity of exposition
+occupying basis position $i$.
+$\beta_{i}$ is obtained by calling \pgmid{dy_btran} to calculate
+$e_{i}B^{\,-1}$, where $e_{i}$ is the unit row vector
+with $1$ in position~${i}$.
+The pivot coefficient for a variable $x_k$ is
+$\overline{a}_{ik} = \beta_i a_k$.
+Let $y_i$ be the dual variable associated with the constraint in basis
+position $i$ and
+let $y_k$ be the dual variable associated with the tight bound constraint
+for the nonbasic primal variable $x_k$.
+
+Abstractly, we need to check
+$y_k = \overline{c}_k + \overline{a}_{ik}\delta_{ik}$ to
+find the maximum allowable $\delta_{ij}$ such that
+$y_k \geq 0 \: \forall k \in \mathcal{B}$ and $y_j = 0$ for some $j$.
+The index $j$ of the entering primal variable $x_j$ will be
+\begin{equation} \label{eq:AbstractDualPivot}
+j = \arg \mathop{\min}_{k} \abs{\frac{\overline{c}_k}{\overline{a}_{ik}}}
+\end{equation}
+for suitable $x_k \in N$.
+
+In practice, it's impossible to explain `suitable $x_k$'
+properly without going deep into the details of the workings of the
+revised dual simplex algorithm (\vid \cite{Haf98a}).
+Table~\ref{Tbl:DualPivotRules} gives the rules in tabular form, from the
+perspective that when all is said and done, the leaving primal variable must
+end up nonbasic at bound and the sign of the reduced cost must be appropriate
+for that bound.
+\begin{table}
+\renewcommand{\arraystretch}{2.5}\setlength{\tabcolsep}{.75\tabcolsep}
+\begin{tabular}{*{7}{>{$}c<{$}}>{$\displaystyle}c<{$}}
+
+\text{leaving } x_i & \text{entering } y_i & \text{resulting } \overline{c}_i &
+\text{entering } x_j & \text{leaving } y_j & \text{initial } \overline{c}_j &
+\text{pivot } \overline{a}_{ij} &
+-\frac{\overline{c}_j}{\overline{a}_{ij}} = \overline{c}_i \\[.5\baselineskip]
+
+\nearrow \mathit{lb} & 0 \nearrow & \geq 0 &
+\mathit{lb} \nearrow & \searrow 0 & \geq 0 &
+< 0 & -\frac{(+)}{(-)} = (+) \\
+
+& & & \mathit{ub} \searrow & \nearrow 0 & \leq 0 &
+> 0 & -\frac{(-)}{(+)} = (+) \\
+
+\searrow \mathit{ub} & 0 \searrow & \leq 0 &
+\mathit{lb} \nearrow & \searrow 0 & \geq 0 &
+> 0 & -\frac{(+)}{(+)} = (-) \\
+
+& & & \mathit{ub} \searrow & \nearrow 0 & \leq 0 &
+< 0 & -\frac{(-)}{(-)} = (-) \\
+\end{tabular}
+\caption{Summary of Dual Simplex Pivoting Rules} \label{Tbl:DualPivotRules}
+\end{table}
+Interpreting the table, the second line says that if the leaving variable
+will be made primal feasible by rising to its lower bound, the resulting
+reduced cost must be positive to retain primal optimality, hence the
+corresponding dual variable must enter by rising from zero.
+If the entering primal variable will be decreasing from its upper bound, the
+current reduced cost must be negative, hence the corresponding dual variable
+must leave by rising to zero\footnote{%
+Properly accounting for these \textit{apparently} negative dual variables is
+the difficulty in trying to explain pivoting from the dual simplex perspective.
+In fact, negative dual variables are an artifact of running the dual simplex
+algorithm using representation and data structures appropriate for primal
+simplex with implicit bound constraints.}.
+The final columns simply illustrate that the sign of the pivot is well-defined
+from the update formula.
+
+\dylp provides a selection of tie-breaking strategies when there are multiple
+candidates with equal $\abs{\delta_{ik}} = \delta_{\mathrm{min}}$.
+The simplest is to select the first variable $x_k$ such that $\delta_{ik} = 0$.
+A slightly more sophisticated strategy is to scan all variables $x_k$
+eligible to enter and pick $x_j$ such that
+$j = \arg \max_{k \in K} \abs{\overline{a}_{ik}}$,
+$K = \{ k \mid \abs{\delta_{ik}} =  \delta_{\mathrm{min}} \}$;
+\dylp will use this strategy by default.
+\dylp also provides four additional strategies based on hyperplane alignment
+as described in \secref{sec:AntiDegenLite}.
+An option allows the tie-breaking strategy to be selected by the client.
+
+In case of degeneracy, the perturbed subproblem anti-degeneracy algorithm
+described in \secref{sec:PerturbedAntiDegeneracy} is also available.
+The client can control the use of perturbed subproblems through two options
+which specify whether a perturbed subproblem can be used, and how many
+consecutive degenerate pivots must occur before the perturbed subproblem
+is created.
+By default, \dylp uses perturbed subproblems aggressively and will
+introduce one when faced with a second consecutive degenerate pivot.
+
+\subsection{Generalised Dual Pivot}
+\label{sec:DualGenSelectInVar}
+
+Suppose that an entering dual variable $y_i$ has been chosen, and the ratio
+test of equation
+\eqnref{eq:AbstractDualPivot} has been used to select a leaving variable
+$y_j$ and determine the change $\delta_{ij}$ in $y_i$ required to drive
+$y_j = \overline{c}_j$ to zero.
+Generalised dual pivoting asks the question ``What happens when we push
+past this limit?''
+
+Immediately, dual feasibility is lost as the value of $y_j$ changes sign.
+But $\ldots$ suppose that the corresponding nonbasic primal variable $x_j$
+has both an upper and lower bound.
+If the value of this variable is changed to the opposite bound (`flipped'),
+the sign of $y_j$ is
+again correct with respect to the value of $x_j$ and dual feasibility is
+restored.
+Flipping $x_j$ will change the value of any basic primal variable $x_k$
+where $\overline{a}_{kj} = \beta_k a_j \neq 0$.
+In particular, the value of $x_i$ will move toward feasibility.
+In terms of dual simplex, the reduced cost $\overline{b}_i = x_i$ of $y_i$
+will be reduced.
+If $\overline{b}_i$ is not yet reduced to zero, $y_i$ can still be used as
+the entering dual variable (albeit with a less favourable reduced cost) and
+the ratio test can be repeated to determine
+a new leaving dual variable $y_{j'}$.
+Repeating this procedure will identify a maximum sequence of primal variable
+flips.
+The sequence ends for one of two reasons:
+\begin{itemize}
+  \item
+  The primal variable $x_{f}$ associated with a dual variable $y_f$ has
+  only one finite bound and cannot be flipped.
+
+  \item
+  Flipping the primal variable $x_f$ will push $x_i$ over its
+  bound and into feasibility.
+  In dual simplex terms, $y_i$ will acquire an unfavourable reduced cost
+  and will no longer be a suitable choice for the entering dual variable.
+\end{itemize}
+The dual variable $y_f$ corresponding to
+$x_f$ becomes the leaving dual variable.
+The dual basis pivot will have $y_f$ leaving and $y_i$ entering; the
+corresponding primal pivot has $x_i$ leaving and $x_f$ entering.
+This sequence of primal variable flips culminating in a final pivot is
+generalised dual pivoting.
+Note that it's possible to choose any variable within the maximum sequence of
+flips and use it as the pivot variable.
+
+\dylp implements generalised dual pivoting by first collecting the set
+of potential leaving dual variables $y_k$ (and associated entering primal
+variables $x_k$).
+This set is then sorted using nondecreasing value of $\abs{\delta_{ik}}$ 
+and numerical stability of the pivot as the primary and secondary sort criteria.
+(Numerical stability is a binary condition for this purpose; a pivot is either
+acceptable or not.)
+The tertiary sort criterion varies according to whether $\delta_{ik} = 0$
+or $\delta_{ik} \neq 0$.
+\begin{itemize}
+  \item
+  For variables with $\delta_{ik} = 0$, give preference to primal variables
+  which can be flipped to their opposite bound.
+
+  \item
+  For variables with $\delta_{ik} \neq 0$, give preference to variables which
+  cannot be flipped.
+\end{itemize}
+Any remaining ties are broken with a preference for pivot coefficients with
+better numerical stability (compared as an analog value).
+This final tie-breaking criterion is important when flipping a sequence
+of variables because numerical
+stability is relative to the largest coefficient value
+$\abs{\overline{a}_{iq}} = \max_k \abs{\overline{a}_{ik}}$
+in a column.
+An unstable pivot has a small ratio
+$\abs{\overline{a}_{ik}/\overline{a}_{iq}}$; this implies a high probability
+that when $x_k$ is flipped, other basic primal variables (at the least, $x_q$)
+will incur large changes.
+Stability of primal variable values is thus improved by preferring large
+pivot coefficients.
+
+A nondegenerate dual pivot is clearly preferable to a degenerate pivot, and
+this motivates the preference for flippable variables within the set of
+candidates with $\delta_{ik} = 0$.
+Ideally, all variables in this group can be flipped; failing this, it's
+preferable to flip as many as possible.
+When consideration moves into the group of candidates with
+$\delta_{ik} \neq 0$, the goal changes.
+Quick selection of a good pivot will minimise further unpredictable changes
+to other dual reduced costs (primal basic variables).
+Since pivoting is the goal, it is reasonable to give preference to variables
+that must be pivoted.
+
+The process of scanning for candidates and sorting the resulting set is
+implemented in the routines \pgmid{scanForDualInCands} and
+\pgmid{dualcand_cmp}.
+
+The sorting procedure just described may result in an ordered list where
+one or more unflippable candidates $y_u$ with numerically unstable pivots
+$\overline{a}_{iu}$ precede the first candidate $y_s$ with a stable
+pivot $\overline{a}_{is}$.
+In this case, a final attempt is made to promote the candidate with a
+stable pivot so that it precedes the the unsuitable candidates $y_u$.
+From the sort criteria, it must be that
+$\abs{\delta_{is}} \geq \abs{\delta_{iu}}$.
+For a given variable $y_u$, if $\abs{y_u - \overline{a}_{iu} \delta_{is}}$
+is less than the dual feasibilty tolerance, the resulting dual infeasibility
+will be tolerable and $y_s$ can be promoted over $y_u$.
+This promotion of a stable pivot over an unstable pivot is implemented in
+\pgmid{promoteSanePivot}.
+
+At the end of the above sort algorithm, the list of candidates is ordered so
+that it begins with a maximum sequence of flippable variables, followed by a
+variable which must be pivoted.
+The routine \pgmid{selectWithoutInf} scans the sorted list and selects the
+actual pivot variable according to the criteria specified above for a maximum
+sequence of flips and final pivot.
+
+\dylp implements one additional experimental capability within generalised dual
+pivoting.
+As mentioned above, flipping nonbasic primal variables will, in general,
+change the values of an arbitrary set of the basic primal variables.
+It is possible, but expensive, to track this change; the major
+cost is the calculation of $\overline{a}_k = B^{\,-1} a_k$ for each candidate
+column.
+With this information in hand, it is possible to locate, within the sequence of
+variables eligible to be flipped or pivoted, the point at which the maximum
+primal infeasibility is at a minimum over the basic variables; this variable
+becomes the pivot variable.
+This method of selecting the pivot variable is implemented in the routine
+\pgmid{selectWithInf}.
+
+Computational experience shows that using the minimum maximum
+primal infeasibility to choose the pivot variable $x_f$ is not a good
+strategy when dual simplex is behaving well.
+Dual simplex moves through a sequence of primal infeasible basic solutions.
+Observation of dual simplex in operation often shows a pattern where the values
+of primal variables grow increasingly infeasible and then, within a relatively
+few pivots, collapse to feasibility (hence optimality).
+Attempting to suppress the initial growth of primal infeasibility is
+counterproductive, lengthening the sequence of pivots required to attain
+optimality.
+However, very large infeasible primal values present challenges to numerical
+accuracy, so that it may be desirable in extreme cases to choose pivots
+with a goal of reducing primal infeasibility.
+
+\dylp by default implements a flexible strategy which normally chooses
+the maximum sequence of flips followed by a final pivot (\ie, the pivot is
+chosen to maximise the improvement in the dual objective).
+If it detects that the magnitude of the primal variables has grown to a point
+where numerical accuracy may be compromised, it will switch to choosing the 
+pivot variable to minimise the maximum infeasibility over the primal variables.
+
+The strategy used for generalised dual pivoting is controlled by the same
+option used to choose between standard and generalised dual pivoting.
+The complete set of options is standard dual pivoting;
+generalised dual pivoting to maximise dual objective improvement;
+generalised dual pivoting to minimise maximum primal infeasibility;
+and the flexible generalised strategy used as the default.
+
+Antidegeneracy using perturbed subproblems is used with generalised dual
+pivoting.
+The alignment-based anti-degeneracy strategies are not implemented.

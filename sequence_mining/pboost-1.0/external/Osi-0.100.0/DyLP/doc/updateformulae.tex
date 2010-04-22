@@ -1,0 +1,98 @@
+\section{Updating Formul\ae}
+\label{sec:UpdatingFormulas}
+
+For purposes of the updating formul\ae, the distinction between original
+variables $x$ and slack variables $s$ is not important.
+For simplicity, $x_k$ is used to represent both original variables and slack
+variables in this section.
+In the same vein, $c^B$ and $c^N$ will denote
+$\begin{bmatrix} c^B & 0 \end{bmatrix}$ and
+$\begin{bmatrix} c^N & 0 \end{bmatrix}$, respectively.
+
+\subsection{Basis Updates}
+\label{sec:BasisUpdates}
+
+While these formul\ae{} are not applied directly to update the basis, they are
+useful in deriving update formul\ae{} for other values.
+
+Suppose that $x_i$ will leave basis position $k$ and be replaced by $x_j$.
+The new basis $B'$ can be expressed as $B' = B - a_i e_k + a_j e_k$.
+Premultiplying by $B^{\,-1}$ and postmultiplying by $(B')^{\,-1}$, we have
+\begin{align}
+\begin{split}\label{Eqn:BasisUpdate}
+B^{\,-1}B'(B')^{\,-1} & = B^{\,-1}B(B')^{\,-1} -
+			  B^{\,-1}a_i e_k(B')^{\,-1} +
+			  B^{\,-1}a_j e_k(B')^{\,-1} \\
+B^{\,-1} & = (B')^{\,-1} - \overline{a}_i \beta'_k + \overline{a}_j \beta'_k \\
+(B')^{\,-1} & = B^{\,-1} + \overline{a}_i \beta'_k - \overline{a}_j \beta'_k \\
+\end{split}
+\end{align}
+Since $x_i$ was basic, $\overline{a}_i = e_k$. This gives
+\begin{equation*}
+(B')^{\,-1} = B^{\,-1} + e_k\beta'_k - \overline{a}_{j} \beta'_k.
+\end{equation*}
+Premultiplying by $e_l$ to obtain an update formula for row $l$, we have
+\begin{align}
+\begin{alignedat}{2}
+\beta'_l & = \beta_l - \frac{\overline{a}_{lj}}{\overline{a}_{kj}}\beta_k &
+	\qquad l \neq k & \\
+\beta'_k & = \frac{1}{\overline{a}_{kj}}\beta_k 
+\end{alignedat} \label{Eqn:betaupdate}
+\end{align}
+
+\subsection{Primal Variable Updates}
+
+Updating the primal variables is straightforward and follows directly from
+\eqref{Eqn:PrimalBasicVars}.
+
+Both primal and dual pivots calculate the change in the entering primal
+variable, $\Delta_j$.
+The entering variable $x_j$ is set to $u_j+\Delta_j$ or
+$l_j+\Delta_j$, for $x_j$ entering from its upper or lower bound,
+respectively.
+The leaving variable $x_i$ is set to $u_i$ or $l_i$, for
+$x_i$ leaving at its upper or lower bound, respectively.
+The remaining basic variables $x_k$, $k \neq i$, are updated according to
+the formula
+\begin{equation*}
+x_k = \overline{b}_k - \overline{a}_{kj}\Delta_j.
+\end{equation*}
+
+\subsection{Dual Variable Updates}
+\label{sec:DualUpdates}
+
+Updating the dual variables is simple in the final implementation, but a little
+work is necessary to derive the updating formula.
+The difficulty lies in the fact that the dual variables of interest are
+$y = \begin{bmatrix} y^\mathcal{B} & y^\mathcal{N} \end{bmatrix}$, \ie, a
+mixture of basic and nonbasic dual variables.
+Direct application of \eqref{Eqn:DualBasicVars} is not possible.
+
+Assume that the leaving variable $x_i$ occupies row $k$ in the basis $B$.
+The new vector of basic costs, $(c')^B$, can be expressed as
+$(c')^B = c^B - [0 \ldots c_i \ldots 0] + [0 \ldots c_j \ldots 0]$, where
+$c_i$ and $c_j$ occur in the $k$\textsuperscript{th} position.
+From \eqnref{Eqn:BasisUpdate}, it is easy to show
+$B(B')^{-1} = I + a_i(\beta')_k - a_j(\beta')_k$.
+
+We can proceed to derive the update formul\ae{} for $y$ as follows:
+\begin{align*}
+y' & = (c')^B (B')^{-1} \\
+   & = c^B B^{\,-1} B (B')^{-1} - c_i(\beta')_k + c_j(\beta')_k \\
+   & = y(I + a_i(\beta')_k - a_j(\beta')_k) -
+       c_i(\beta')_k + c_j(\beta')_k \\
+   & = y + (c_j - y a_j)(\beta')_k - (c_i - y a_i)(\beta')_k . \\
+%
+\intertext{Recognising that $\overline{c}_j = c_j - y a_j$ is the reduced
+cost of $x_j$ before the basis change, and noting that
+$\overline{c}_i = c_i - y a_i = 0$ since $x_i$ was basic, we have}
+%
+y' & = y + \overline{c}_j(\beta')_k . \\
+%
+\intertext{As a further observation, note that
+$(\beta')_k = \beta_k/\overline{a}_{kj}$, so we can update $y$ using
+a row of $B^{\,-1}$ as}
+%
+y' & = y + \overline{c}_j\beta_k/\overline{a}_{kj}.
+\end{align*}
+

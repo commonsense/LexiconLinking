@@ -1,0 +1,78 @@
+\section{Scaling}
+\label{sec:Scaling}
+
+\dylp provides the capability for row and column scaling of the original
+LP problem.
+This section develops the algebra used for scaling and unscaling and describes
+some additional details of the implementation.
+
+Let $R$ be a diagonal matrix used to scale the rows of the LP problem and $S$
+be a diagonal matrix used to scale the columns of the LP problem.
+The original problem \eqnref{Eqn:BoundedPrimal} is scaled as
+\begin{align*}
+ \min \:(cS)(S^{-1}x) & \\
+     (RAS)(S^{-1}x) & \leq (Rb) \\
+     (S^{-1}l) \leq (S^{-1}x) & \leq (S^{-1}u)
+\intertext{to produce the scaled problem}
+  \min \breve{c}\breve{x} & & \\
+     \breve{A}\breve{x} & \leq \breve{b} \\
+     \breve{l} \leq \breve{x} & \leq \breve{u} \\
+\end{align*}
+where $\breve{A} = RAS$, $\breve{b} = Rb$, $\breve{c} = cS$,
+$\breve{l} = S^{-1}l$, $\breve{u} = S^{-1}u$, and $\breve{x} = S^{-1}x$.
+\dylp then treats the scaled problem as the original problem.
+
+In order to report the solution, \dylp generates unscaled values.
+Recovering unscaled values of the nonbasic primal variables is
+trivial --- they can be read from the original unscaled $l$ and $u$ vectors.
+To recover the values of the basic variables, \dylp calculates
+$x^B = S^B \breve{x}^B$.
+
+To recover the unscaled dual variables $y$, start with
+$\breve{y} = \breve{c}^B \breve{B}^{-1}$.
+Then
+\begin{align*}
+\breve{y} & = \breve{c}^B (R B S^B)^{-1} \\
+	  & = (c^B S^B) ((S^B)^{-1} B^{-1} R^{-1}) \\
+	  & = c^B B^{-1} R^{-1} \\
+	  & = y R^{-1}
+\end{align*}
+and $y = \breve{y}R$.
+
+By default, \dylp will calculate scaling matrices $R$ and $S$ and scale the
+constraint system unless the coefficients satisfy the conditions
+$.5 < \min_{ij} \abs{a_{ij}}$ and $\max_{ij} \abs{a_{ij}} < 2$.
+The client can forbid scaling entirely, or supply a pair of vectors that will
+be used as the diagonal coefficients of $R$ and $S$.
+
+A few additional details are helpful to understand the implementation.
+\dylp scales the original constraint system before generating
+logical variables.
+Nonetheless, it is
+desirable to maintain a coefficient of 1.0 for each logical (-1.0 in the
+case of $\geq$ constraints).
+The row scaling coefficient $r_{ii}$ for constraint $i$ is already determined.
+To keep the coefficients of logical variables at $\pm1.0$, the column
+scaling factor is chosen to be $1/r_{ii}$ and the column scaling matrix $S$
+is extended to include logical variables.
+
+In order to provide a client program with a general ability to price a dual
+pivot\footnote{%
+One use of this capability is the calculation of standard up and down
+penalties.
+Another is estimating the degradation in the objective function after
+adding a branching hyperplane.}
+without exporting knowledge of the scaling vectors,
+\dylp calculates unscaled rows of the basis inverse.
+Given $\breve{B}^{-1} = (S^B)^{-1} B^{-1} R^{-1}$, a row $k$ of the inverse
+will be
+\begin{align*}
+\breve{\beta}_k & = s_{B(k)} \beta_k R^{-1} \\
+\intertext{ and }
+\beta_k & = \frac{1}{ s_{B(k)}} \breve{\beta}_k R
+\end{align*}
+where $B(k)$ represents the index of the variable $x_j$ which is basic in
+position $k$ of the basis.
+\dylp provides routines which will price nonbasic variables
+(\pgmid{dy_pricenbvars}) and price a dual pivot (\pgmid{dy_pricedualpiv})
+using unscaled coefficients.
