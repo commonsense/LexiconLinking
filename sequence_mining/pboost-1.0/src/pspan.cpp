@@ -178,22 +178,58 @@ main (int argc, char* argv[])
 
     */
     if (vm.count("lexicon")) {
+
         std::cout << "Constructing a lexicon...\n";
+
         
-        std::cout << "Mined " << subseq.size () << " sequences." << std::endl;
-        PrefixSpanK pspan (topK, poptions);
-		if (vm.count ("verify"))
-			pspan.SetVerification (true);
+        int it = 0;
+        while(1) {
+            
+    
+            std::cout << "Lexicon construction Iteration " << it << endl;
+            
+            /* min support percentage mode */
+            double minsupPercent = 0.2;
+            minsup = (unsigned int) (minsupPercent * ((double) S.size ()) + 0.5);
+    		std::cerr << "Minimum support is " << minsupPercent << ", set to "	<< minsup << std::endl;
+            
+            std::vector<std::pair<unsigned int, SequenceT> > subseq;
+        	PrefixSpanOptions poptions (minsup, length_min, length_max, maxgap);
+			PrefixSpanK pspan (topK, poptions);
+			if (vm.count ("verify"))
+				pspan.SetVerification (true);
 
-		pspan.Mine (S);
+			pspan.Mine (S);
 
-		std::cout << "The minimum support threshold for K=" << topK
-			<< " is " << pspan.MinimumSupportThreshold () << std::endl;
+		    std::cout << "Mined " << subseq.size () << " sequences." << std::endl;
+        	std::cout << "The minimum support threshold for K=" << topK	<< " is " << pspan.MinimumSupportThreshold () << std::endl;
 
-		std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
-			std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
-				(subseq));
+			std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
+				std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
+					(subseq));
+	
         
+        					
+    		std::ofstream ssout (outputFilename.c_str ());
+    		for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
+    			iv = subseq.begin () ; iv != subseq.end () ; ++iv)
+    		{
+    			ssout << iv->second << std::endl;
+    		}
+    		ssout.close ();
+    
+        	/* Dump found sequences
+        	 */
+        	if (vm.count ("verbose")) {
+        		for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
+        			iv = subseq.begin () ; iv != subseq.end () ; ++iv)
+        		{
+        			std::cout << iv->first << " times: " << iv->second << std::endl;
+        		}
+        	}
+
+        	/* Do projection on subsequences and output file.
+        	 */
         	if (vm.count ("project")) {
         		std::ofstream projout (projectFilename.c_str ());
 
@@ -213,146 +249,160 @@ main (int argc, char* argv[])
         		}
         		projout.close ();
         	}
-    }
+
+    	/* Cleanup
+    	 */
+    	for (std::vector<const Sequence*>::iterator si = S.begin () ;
+    		si != S.end () ; ++si)
+    	{
+    		delete (*si);
+    	}
+    	
+    	
+                break; // exit loop
+        } // end while
+        
+    } else {
     
-	/* Get mode and calculate details
-	 */
-	if (vm.count ("minsup") && vm.count ("minsuppct")) {
-		std::cerr << "The \"minsup\" and \"minsuppct\" options "
-			"are mutually exclusive." << std::endl;
+    	/* Get mode and calculate details
+    	 */
+    	if (vm.count ("minsup") && vm.count ("minsuppct")) {
+    		std::cerr << "The \"minsup\" and \"minsuppct\" options "
+    			"are mutually exclusive." << std::endl;
 
-		exit (EXIT_FAILURE);
-	}
+    		exit (EXIT_FAILURE);
+    	}
 
-	bool minsup_mode = false;
-	if (vm.count ("minsup") || vm.count ("minsuppct"))
-		minsup_mode = true;
+    	bool minsup_mode = false;
+    	if (vm.count ("minsup") || vm.count ("minsuppct"))
+    		minsup_mode = true;
 
-	if (vm.count ("minsuppct")) {
-		minsup = (unsigned int) (minsupPercent * ((double) S.size ()) + 0.5);
-		std::cerr << "Minimum support is " << minsupPercent << ", set to "
-			<< minsup << std::endl;
-	}
+    	if (vm.count ("minsuppct")) {
+    		minsup = (unsigned int) (minsupPercent * ((double) S.size ()) + 0.5);
+    		std::cerr << "Minimum support is " << minsupPercent << ", set to "
+    			<< minsup << std::endl;
+    	}
 
-	std::vector<std::pair<unsigned int, SequenceT> > subseq;
-	PrefixSpanOptions poptions (minsup, length_min, length_max, maxgap);
+    	std::vector<std::pair<unsigned int, SequenceT> > subseq;
+    	PrefixSpanOptions poptions (minsup, length_min, length_max, maxgap);
 
-	if (vm.count ("dspca") == 0) {
-		if (minsup_mode) {
-			PrefixSpan pspan (poptions);
-			if (vm.count ("verify"))
-				pspan.SetVerification (true);
+    	if (vm.count ("dspca") == 0) {
+    		if (minsup_mode) {
+    			PrefixSpan pspan (poptions);
+    			if (vm.count ("verify"))
+    				pspan.SetVerification (true);
 
-			pspan.Mine (S);
+    			pspan.Mine (S);
 
-			std::copy (pspan.subsequences.begin (), pspan.subsequences.end (),
-				std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
-					(subseq));
-		} else if (vm.count ("topk")) {
-			PrefixSpanK pspan (topK, poptions);
-			if (vm.count ("verify"))
-				pspan.SetVerification (true);
+    			std::copy (pspan.subsequences.begin (), pspan.subsequences.end (),
+    				std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
+    					(subseq));
+    		} else if (vm.count ("topk")) {
+    			PrefixSpanK pspan (topK, poptions);
+    			if (vm.count ("verify"))
+    				pspan.SetVerification (true);
 
-			pspan.Mine (S);
+    			pspan.Mine (S);
 
-			std::cout << "The minimum support threshold for K=" << topK
-				<< " is " << pspan.MinimumSupportThreshold () << std::endl;
+    			std::cout << "The minimum support threshold for K=" << topK
+    				<< " is " << pspan.MinimumSupportThreshold () << std::endl;
 
-			std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
-				std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
-					(subseq));
-		}
-	} else {
-		PrefixSpanDSPCA pspan (dspcaBasisNonZero, dspcaBasisCount, poptions);
+    			std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
+    				std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
+    					(subseq));
+    		}
+    	} else {
+    		PrefixSpanDSPCA pspan (dspcaBasisNonZero, dspcaBasisCount, poptions);
 
-		pspan.PCA (S);
+    		pspan.PCA (S);
 
-		/* Do PCA projection (different from normal projection):
-		 *
-		 * Xred = (X-repmat(cmean,size(X,1),1))*comp';
-		 */
-		if (vm.count ("project")) {
-			std::ofstream projout (projectFilename.c_str ());
+    		/* Do PCA projection (different from normal projection):
+    		 *
+    		 * Xred = (X-repmat(cmean,size(X,1),1))*comp';
+    		 */
+    		if (vm.count ("project")) {
+    			std::ofstream projout (projectFilename.c_str ());
 
-			for (unsigned int n = 0 ; n < S.size () ; ++n) {
-				for (unsigned int c = 0 ; c < pspan.components ; ++c) {
-					double f = 0.0;
+    			for (unsigned int n = 0 ; n < S.size () ; ++n) {
+    				for (unsigned int c = 0 ; c < pspan.components ; ++c) {
+    					double f = 0.0;
 
-					for (unsigned int el = 0 ; el < pspan.Cpatterns[c].size () ; ++el) {
-						bool contains = (pspan.Cpatterns[c][el].Occurence.find (n) !=
-							pspan.Cpatterns[c][el].Occurence.end ());
+    					for (unsigned int el = 0 ; el < pspan.Cpatterns[c].size () ; ++el) {
+    						bool contains = (pspan.Cpatterns[c][el].Occurence.find (n) !=
+    							pspan.Cpatterns[c][el].Occurence.end ());
 
-						f += pspan.Ceval[c][el] * ((contains ? 1.0 : 0.0) -
-							((double) pspan.Cpatterns[c][el].Occurence.size ()) /
-								((double) S.size ()));
-					}
+    						f += pspan.Ceval[c][el] * ((contains ? 1.0 : 0.0) -
+    							((double) pspan.Cpatterns[c][el].Occurence.size ()) /
+    								((double) S.size ()));
+    					}
 
-					if (c > 0)
-						projout << " ";
+    					if (c > 0)
+    						projout << " ";
 
-					projout << f;
-				}
-				projout << std::endl;
-			}
-			projout.close ();
-		}
+    					projout << f;
+    				}
+    				projout << std::endl;
+    			}
+    			projout.close ();
+    		}
 
-		exit (EXIT_SUCCESS);
-	}
+    		exit (EXIT_SUCCESS);
+    	}
 
-	std::cout << "Mined " << subseq.size () << " sequences." << std::endl;
+    	std::cout << "Mined " << subseq.size () << " sequences." << std::endl;
 
-	/* Write output file
-	 */
-	{
-		std::ofstream ssout (outputFilename.c_str ());
-		for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
-			iv = subseq.begin () ; iv != subseq.end () ; ++iv)
-		{
-			ssout << iv->second << std::endl;
-		}
-		ssout.close ();
-	}
+    	/* Write output file
+    	 */
+    	{
+    		std::ofstream ssout (outputFilename.c_str ());
+    		for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
+    			iv = subseq.begin () ; iv != subseq.end () ; ++iv)
+    		{
+    			ssout << iv->second << std::endl;
+    		}
+    		ssout.close ();
+    	}
 
-	/* Dump found sequences
-	 */
-	if (vm.count ("verbose")) {
-		for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
-			iv = subseq.begin () ; iv != subseq.end () ; ++iv)
-		{
-			std::cout << iv->first << " times: " << iv->second << std::endl;
-		}
-	}
+    	/* Dump found sequences
+    	 */
+    	if (vm.count ("verbose")) {
+    		for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
+    			iv = subseq.begin () ; iv != subseq.end () ; ++iv)
+    		{
+    			std::cout << iv->first << " times: " << iv->second << std::endl;
+    		}
+    	}
 
-	/* Do projection on subsequences and output file.
-	 */
-	if (vm.count ("project")) {
-		std::ofstream projout (projectFilename.c_str ());
+    	/* Do projection on subsequences and output file.
+    	 */
+    	if (vm.count ("project")) {
+    		std::ofstream projout (projectFilename.c_str ());
 
-		for (unsigned int n = 0 ; n < S.size () ; ++n) {
-			for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
-				iv = subseq.begin () ; iv != subseq.end () ; ++iv)
-			{
-				if (iv != subseq.begin ())
-					projout << " ";
+    		for (unsigned int n = 0 ; n < S.size () ; ++n) {
+    			for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
+    				iv = subseq.begin () ; iv != subseq.end () ; ++iv)
+    			{
+    				if (iv != subseq.begin ())
+    					projout << " ";
 
-				if (iv->second.Occurence.find (n) != iv->second.Occurence.end ())
-					projout << "1";
-				else
-					projout << "0";
-			}
-			projout << std::endl;
-		}
-		projout.close ();
-	}
+    				if (iv->second.Occurence.find (n) != iv->second.Occurence.end ())
+    					projout << "1";
+    				else
+    					projout << "0";
+    			}
+    			projout << std::endl;
+    		}
+    		projout.close ();
+    	}
 
-	/* Cleanup
-	 */
-	for (std::vector<const Sequence*>::iterator si = S.begin () ;
-		si != S.end () ; ++si)
-	{
-		delete (*si);
-	}
+    	/* Cleanup
+    	 */
+    	for (std::vector<const Sequence*>::iterator si = S.begin () ;
+    		si != S.end () ; ++si)
+    	{
+    		delete (*si);
+    	}
+    }
 }
 
 
