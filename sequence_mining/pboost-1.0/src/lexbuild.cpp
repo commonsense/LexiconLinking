@@ -85,7 +85,7 @@ main (int argc, char* argv[])
 
 	/* Output file
 	 */
-	std::string outputFilename;
+	std::string outputFilename = "output.txt";
 	std::string projectFilename;
 	unsigned int minsup = 0;
 	unsigned int length_min, length_max;
@@ -93,8 +93,8 @@ main (int argc, char* argv[])
 
 	po::options_description config ("Parameters");
 	config.add_options ()
-		("output", po::value<std::string>(&outputFilename)->default_value ("output.txt"),
-			"Frequent subsequence output file")
+	//	("output", po::value<std::string>(&outputFilename)->default_value ("output.txt"),
+	//		"Frequent subsequence output file")
 		("project,p", po::value<std::string>(&projectFilename),
 			"Project samples on found sequences.")
 		("lexicon,L", "Lexicon Construction Mode")

@@ -1,8 +1,8 @@
 
 CPP=g++
 
-INC_BOOST=-I/usr/local/include/boost-1_33_1
-LIB_BOOST=-lboost_program_options-1_33_1 -lboost_serialization-1_33_1 
+INC_BOOST=-I/usr/include
+LIB_BOOST=-L/usr/lib/ -lboost_program_options -lboost_serialization 
 include Makefile.options
 
 # General prequisites:
@@ -16,8 +16,8 @@ CPPFLAGS=-Wall -g -O3 -fomit-frame-pointer \
 INCLUDE=-I. -I../external/osi-0.95.3/include -I../external/osi-0.95.3/Osi/src/OsiClp  -I../external/osi-0.95.3/Osi/src -I/usr/local/include/boost-1_33_1
 INCLUDE_PSPAN=-I. -I../external/gmm-3.0/include -I../external/osi-0.95.3/Osi/src -I../external/osi-0.95.3/Osi/src/OsiClp -L/usr/local/lib $(INC_BOOST)
 LIBS= -L/usr/local/lib	-L../external/osi-0.95.3/lib -L../external/osi-0.95.3/Osi/lib $(LIB_BOOST) -lOsiClp -lOsi -lClp -lm -lCoinUtils
-LIBS_PTEST=-L/usr/local/lib $(LIB_BOOST)
-LIBS_PSPAN=-L/usr/local/lib $(LIB_BOOST)
+LIBS_PTEST=-L/usr/local/lib -L/usr/lib/ $(LIB_BOOST)
+LIBS_PSPAN=-L/usr/local/lib -L/usr/lib -I/usr/include $(LIB_BOOST)
 
 # 64 bit static compilation (cluster nodes do not have the desired libraries)
 CPP_64=g++-4.4
@@ -30,8 +30,7 @@ LIBS_64=-L../external/boost-1.33.1/lib -lboost_program_options-gcc \
 	-ldl -L../external/osi-0.95.3-amd64/lib -lOsiClp -lOsi -lClp -lCoinUtils
 LIBS_64_PTEST=-L../external/boost-1.33.1/lib -lboost_serialization-gcc \
 	-lboost_program_options-gcc
-LIBS_64_PSPAN=-L../external/boost-1.33.1/lib -lboost_serialization-gcc \
-	-lboost_program_options-gcc
+LIBS_64_PSPAN=-L/usr/lib -lboost_serialization-mt -lboost_program_options-mt
 
 # pboost sources
 SOURCES=Sequence.cpp PrefixSpan.cpp PrefixSpanK.cpp \
@@ -46,6 +45,7 @@ SOURCES_INC=Sequence.h PrefixSpan.h PrefixSpanK.h \
 SOURCES_PSPAN=Sequence.cpp PrefixSpan.cpp PrefixSpanK.cpp PrefixSpanDSPCA.cpp
 SOURCES_PSPAN_INC=Sequence.h PrefixSpan.h PrefixSpanK.h PrefixSpanDSPCA.h \
 	BestPatternList.h ExplorationGuide2.h
+
 
 
 # Matlab MEX wrapper
@@ -106,10 +106,10 @@ ptest.x86:	ptest.cpp DDAG.cpp Sequence.cpp Sequence.h Makefile
 
 
 # static amd64 targets
-pspan.amd64:	pspan.cpp $(SOURCES_PSPAN) $(SOURCES_PSPAN_INC) Makefile
-	$(CPP_64) $(CPPFLAGS_64) -o pspan.amd64 pspan.cpp \
+64:	lexbuild.cpp $(SOURCES_PSPAN) $(SOURCES_PSPAN_INC) Makefile
+	$(CPP_64) $(CPPFLAGS_64) -o lexbuild.amd64 lexbuild.cpp \
 		$(SOURCES_PSPAN) $(INCLUDE_64) $(INCLUDE_PSPAN) $(LIBS_64_PSPAN)
-	mv pspan.amd64 ../static/
+	mv lexbuild.amd64 ../../
 
 pboost.amd64:	pboost.cpp $(SOURCES) $(SOURCES_INC) Makefile
 	$(CPP_64) $(CPPFLAGS_64) -o pboost.amd64 pboost.cpp \
