@@ -20,7 +20,7 @@ LIBS_PTEST=-L/usr/local/lib $(LIB_BOOST)
 LIBS_PSPAN=-L/usr/local/lib $(LIB_BOOST)
 
 # 64 bit static compilation (cluster nodes do not have the desired libraries)
-CPP_64=g++-4.2
+CPP_64=g++-4.4
 CPPFLAGS_64=-Wall -static -m64 -march=athlon64 -O3 -fomit-frame-pointer \
 	-funroll-loops -finline-functions -Wno-deprecated -L/usr/lib64
 #CPPFLAGS_64=-Wall -static -m64 -g -ggdb -Wno-deprecated
@@ -59,7 +59,7 @@ MEX_SOURCES_INC=Sequence.h PrefixSpan.h PrefixSpanLPBoost.h PrefixSpanLPBoost15.
 
 ### Targets
 
-all:	pboost ptest pspan
+all:	pboost ptest lexbuild
 # pspan removed, a rebuild is not always required
 # SequenceTest removed, outdated
 
@@ -73,10 +73,10 @@ PrefixSpanTest:	PrefixSpanTest.cpp $(SOURCES) $(SOURCES_INC) Makefile
 	$(CPP) $(CPPFLAGS) -o PrefixSpanTest PrefixSpanTest.cpp \
 		$(SOURCES) $(INCLUDE) $(LIBS)
 
-pspan:	pspan.cpp $(SOURCES_PSPAN) $(SOURCES_PSPAN_INC) Makefile
-	$(CPP) $(CPPFLAGS) -o pspan pspan.cpp \
+lexbuild:	lexbuild.cpp $(SOURCES_PSPAN) $(SOURCES_PSPAN_INC) Makefile
+	$(CPP) $(CPPFLAGS) -o lexbuild lexbuild.cpp \
 		$(SOURCES_PSPAN) $(INCLUDE_PSPAN) $(LIBS_PSPAN)
-	cp pspan ../../
+	cp lexbuild ../../
 
 pboost:	pboost.cpp $(SOURCES) $(SOURCES_INC) Makefile
 	$(CPP) $(CPPFLAGS) -o pboost pboost.cpp \

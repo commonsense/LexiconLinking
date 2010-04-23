@@ -122,6 +122,16 @@ public:
 		return (lengthSet (eidx));
 	}
 
+	virtual bool replace (unsigned int eidx, unsigned int source, unsigned int sink,
+		unsigned int start_iidx) const
+	{
+		for (unsigned int n = start_iidx ; n < lengthSet (eidx) ; ++n) {
+			if (get (eidx, n) == source)
+                get(eidx,n) ;
+		}
+
+		return (true);
+	}
 	virtual bool contains (unsigned int eidx, unsigned int item,
 		unsigned int start_iidx) const
 	{
