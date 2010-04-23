@@ -101,6 +101,7 @@ main (int argc, char* argv[])
 			"Frequent subsequence output file")
 		("project,p", po::value<std::string>(&projectFilename),
 			"Project samples on found sequences.")
+		("lexicon,L", "Lexicon Construction Mode")
 		("verbose,v", "Verbose mode, dumping found subsequences.")
 		("verify,V", "Verify all projections explictly (slow).")
 		("topk,K", po::value<unsigned int>(&topK)->default_value (20),
@@ -146,7 +147,7 @@ main (int argc, char* argv[])
 	if (vm.count ("help") || vm.count ("input") == 0 ||
 		vm["input"].as<std::vector<std::string> >().size () != 1)
 	{
-		std::cerr << "pspan, $Id: pspan.cpp 1097 2007-09-24 09:17:53Z nowozin $" << std::endl;
+		std::cerr << "pspan, $Id: pspan.cpp + lexicon builder  $" << std::endl;
 		std::cerr << "================================================================================" << std::endl;
 		std::cerr << "Copyright (C) 2007 -- Sebastian Nowozin <sebastian.nowozin@tuebingen.mpg.de>" << std::endl;
 		std::cerr << std::endl;
@@ -172,6 +173,48 @@ main (int argc, char* argv[])
 		exit (EXIT_FAILURE);
 	}
 
+    /* Lexicon Contruction Code 
+        Dustin Smith 2010-04-24 
+
+    */
+    if (vm.count("lexicon")) {
+        std::cout << "Constructing a lexicon...\n";
+        
+        std::cout << "Mined " << subseq.size () << " sequences." << std::endl;
+        PrefixSpanK pspan (topK, poptions);
+		if (vm.count ("verify"))
+			pspan.SetVerification (true);
+
+		pspan.Mine (S);
+
+		std::cout << "The minimum support threshold for K=" << topK
+			<< " is " << pspan.MinimumSupportThreshold () << std::endl;
+
+		std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
+			std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
+				(subseq));
+        
+        	if (vm.count ("project")) {
+        		std::ofstream projout (projectFilename.c_str ());
+
+        		for (unsigned int n = 0 ; n < S.size () ; ++n) {
+        			for (std::vector<std::pair<unsigned int, SequenceT> >::iterator
+        				iv = subseq.begin () ; iv != subseq.end () ; ++iv)
+        			{
+        				if (iv != subseq.begin ())
+        					projout << " ";
+
+        				if (iv->second.Occurence.find (n) != iv->second.Occurence.end ())
+        					projout << "1";
+        				else
+        					projout << "0";
+        			}
+        			projout << std::endl;
+        		}
+        		projout.close ();
+        	}
+    }
+    
 	/* Get mode and calculate details
 	 */
 	if (vm.count ("minsup") && vm.count ("minsuppct")) {

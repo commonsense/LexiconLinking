@@ -76,6 +76,7 @@ PrefixSpanTest:	PrefixSpanTest.cpp $(SOURCES) $(SOURCES_INC) Makefile
 pspan:	pspan.cpp $(SOURCES_PSPAN) $(SOURCES_PSPAN_INC) Makefile
 	$(CPP) $(CPPFLAGS) -o pspan pspan.cpp \
 		$(SOURCES_PSPAN) $(INCLUDE_PSPAN) $(LIBS_PSPAN)
+	cp pspan ../../
 
 pboost:	pboost.cpp $(SOURCES) $(SOURCES_INC) Makefile
 	$(CPP) $(CPPFLAGS) -o pboost pboost.cpp \
