@@ -37,6 +37,7 @@ namespace po = boost::program_options;
 using namespace SeqMine;
 
 
+
 static bool
 parseSequenceMetaFile (const char* filename, std::vector<const SeqMine::Sequence*>& S)
 {
@@ -187,6 +188,9 @@ main (int argc, char* argv[])
         //minsup = (unsigned int) (minsupPercent * ((double) S.size ()) + 0.5);
     	//std::cerr << "Minimum support is " << minsupPercent << ", set to "	<< minsup << std::endl;
 
+       	std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
+        		std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
+        			(subseq));
 
         std::cout << "Mined " << subseq.size () << " sequences." << std::endl;
     	std::cout << "The minimum support threshold for K=" << topK	<< " is " << pspan.MinimumSupportThreshold () << std::endl;
@@ -199,10 +203,7 @@ main (int argc, char* argv[])
             
         } else {
         
-        	std::copy (pspan.mostFrequent.begin (), pspan.mostFrequent.end (),
-        		std::back_insert_iterator<std::vector<std::pair<unsigned int, SequenceT> > >
-        			(subseq));
-
+ 
 					
         	std::ofstream ssout (outputFilename.c_str ());
         	for (std::vector<std::pair<unsigned int, SequenceT> >::iterator

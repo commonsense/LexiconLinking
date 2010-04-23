@@ -1,7 +1,7 @@
 
 #include <iostream>
 
-#include <Sequence.h>
+#include "Sequence.h"
 
 using namespace SeqMine;
 
@@ -38,7 +38,7 @@ main (int argc, char* argv[])
 
 	SequenceT stalpha = SequenceT ();
 	stalpha.appendElement (alpha);
-	SequenceTSearch stalphaSearch = SequenceTSearch (stalpha);
+	//SequenceTSearch stalphaSearch = SequenceTSearch (stalpha);
 
 	const Sequence* proj = stalphaSearch.prefixProject (st, false);
 
