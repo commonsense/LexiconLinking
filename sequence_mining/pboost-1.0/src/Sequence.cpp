@@ -328,6 +328,7 @@ void SequenceT::decodeAndPrint(Lexicon & lex)
 
 
 
+
 unsigned int
 SequenceT::lengthElements () const
 {
@@ -420,6 +421,7 @@ SequenceT::checkAppendPossible (unsigned int item) const
 	//std::cout << "lastItem: " << lastItem () << ", item: " << item << std::endl;
 	return (lastItem () < item);
 }
+
 
 }
 
