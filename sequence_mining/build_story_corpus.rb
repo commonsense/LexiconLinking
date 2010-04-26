@@ -1,5 +1,5 @@
 
-MAX_VARIANCE = 1
+PROJECT_NAME = "story_steps"
 
 require 'rubygems'
 require 'active_record'
@@ -23,7 +23,7 @@ class Steps < ActiveRecord::Base
 end
 
 # query to return steps, sorted by their task, based on constraints for variance.
-steps = Steps.find_by_sql("
+stories = Steps.find_by_sql("
 select b.task, b.avg, s2.* from tasks t2, steps s2, (
 select task, id, count(*) as num, sum(num_steps)/count(*)  as avg,
 pow(num_steps-(sum(num_steps)/(count(*))),2) as var_sq 
@@ -43,10 +43,17 @@ order by b.task, s2.id
 last_task = ""
 last_taskid = ""
 f_out = nil #output file pointer
-index_out = File.open("story_sequences_index.txt",'w')
-all_stories_out = File.open("all_stories.txt",'w')
 
-$story_words = Hash.new(0)
+
+`rm -rf #{PROJECT_NAME}`  # shell command to clear stories directory
+`mkdir #{PROJECT_NAME}`
+`mkdir #{PROJECT_NAME}/seq`
+
+
+index_out = File.open("#{PROJECT_NAME}/#{PROJECT_NAME}.index",'w')
+all_stories_out =  File.open("#{PROJECT_NAME}/#{PROJECT_NAME}.all",'w')
+
+$story_steps = Hash.new(0)
 
 # finds or adds id of item i in hash h
 def hash_to_id(h,i)
@@ -56,19 +63,17 @@ def hash_to_id(h,i)
 	h[i]
 end
 
-def replace_words_with_numbers(seq)
-  seq.collect {|x| hash_to_id($story_words,x)}
+def replace_with_numbers(h,seq)
+  seq.collect {|x| hash_to_id(h,x)}
 end
 
-`rm -rf story_sequences`  # shell command to clear stories directory
-`mkdir story_sequences`  
 ct = 0
-for s in steps
+for s in stories
 	if last_task != s.task
 		#print "==============\n#{s.task}\n==============\n"
 		last_task = s.task
 		last_taskid = s.taskid
-    dir = "story_sequences/#{s.task.gsub(" ","_")}"
+    dir = "#{PROJECT_NAME}/seq/#{s.task.gsub(" ","_")}"
     `mkdir #{dir}`
     f_out = File.open(dir+"/#{ct}",'w')
 	end
@@ -82,9 +87,11 @@ for s in steps
 
 	end
   all_stories_out.puts s.step
-	f_out.puts "#{replace_words_with_numbers(s.step.split(" ")).join(" ")}" 
+	f_out.puts "#{replace_with_numbers($story_steps,s.step.split(" ")).join(" ")}" 
 end
 
-k_out = File.open("story_keys.txt",'w')
-$story_words.each {|k,v| k_out.puts "#{v}\t#{k}"}
+k_out = File.open("#{PROJECT_NAME}/#{PROJECT_NAME}.keys",'w')
+$story_steps.each {|k,v| k_out.puts "#{v}\t#{k}"}
+
+
 

@@ -509,6 +509,67 @@ PrefixSpan::verifyOccurenceCorrectness (const Sequence& alpha) const
 /* Project a set of sequences by projecting each sequence individually, if
  * possible.
  */
+
+/*
+bool
+PrefixSpan::verifyOccurenceCorrectnessBackup (const Sequence& alpha) const
+{
+	++verifyCount;
+	if (verifyCount % 1000 == 1) {
+		std::cout << "[" << verifyCount
+			<< "] PrefixSpan::verifyOccurenceCorrectness" << std::endl;
+	}
+
+	for (unsigned int n = 0 ; n < (*Sall).size () ; ++n) {
+		bool occContains = (alpha.Occurence.find (n) != alpha.Occurence.end ());
+		bool seqContains;
+		if (options.maxgap < 0)
+			seqContains = ((*Sall)[n])->contains (alpha);
+		else
+			seqContains = ((*Sall)[n])->containsGap (alpha, options.maxgap);
+
+		if (occContains == seqContains)
+			continue;
+
+		std::cout << "FATAL: Inconsistent subseteq relation (maxgap="
+			<< options.maxgap << ")" << std::endl;
+		std::cout << "sub sequence: " << alpha << std::endl;
+		std::cout << "sup sequence (#" << n << "): " << *(*Sall)[n] << std::endl;
+		std::cout << "occContains: " << (occContains ? "TRUE" : "FALSE") << std::endl;
+		std::cout << "seqContains: " << (seqContains ? "TRUE" : "FALSE") << std::endl;
+		std::cout << std::endl;
+		std::cout << "alpha.Occurence:" << std::endl;
+
+		for (std::set<unsigned int>::iterator iv = alpha.Occurence.begin () ;
+			iv != alpha.Occurence.end () ; ++iv)
+		{
+			std::cout << *iv << " ";
+		}
+		std::cout << std::endl;
+
+		std::cout << "seq.contains occurences:" << std::endl;
+		for (unsigned int n = 0 ; n < (*Sall).size () ; ++n) {
+			bool seqContains;
+			if (options.maxgap < 0)
+				seqContains = ((*Sall)[n])->contains (alpha);
+			else
+				seqContains = ((*Sall)[n])->containsGap (alpha, options.maxgap);
+
+			if (seqContains)
+				std::cout << n << " ";
+		}
+		std::cout << std::endl;
+
+		assert (0);
+		return (false);
+	}
+	return (true);
+}
+*/
+
+/* Project a set of sequences by projecting each sequence individually, if
+ * possible.
+ */
 std::vector<const Sequence*>
 PrefixSpan::prefixProject (unsigned int item, bool itemJoined,
 	std::vector<const Sequence*> S,
@@ -538,7 +599,6 @@ PrefixSpan::prefixProject (unsigned int item, bool itemJoined,
 
 	return (res);
 }
-
 
 std::vector<const Sequence*>
 PrefixSpan::prefixProjectGap (unsigned int item,
@@ -606,8 +666,17 @@ PrefixSpan::prefixProjectGap (unsigned int item,
 				pi = proj.erase (pi);
 			} else
 				++pi;
+				
+						
 		}
 
+        /*std::cout << "Resulting in " << proj.size () << " projections:" << std::endl;
+		for (std::vector<const Sequence*>::iterator pi = proj.begin () ;
+			pi != proj.end () ; ++pi)
+		{
+			std::cout << "   (len " << (*pi)->length () << "): "
+				<< *(*pi) << std::endl;
+		}*/
 		res.insert (res.end (), proj.begin (), proj.end ());
 	}
 

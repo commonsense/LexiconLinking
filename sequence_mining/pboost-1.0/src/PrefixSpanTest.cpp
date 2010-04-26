@@ -19,7 +19,7 @@ int  main (int argc, char* argv[])
 	el.clear (); el.push_back (1); s10.appendElement (el);
 	el.clear (); el.push_back (1); el.push_back (2); el.push_back (3); s10.appendElement (el);
 	el.clear (); el.push_back (1); el.push_back (3); s10.appendElement (el);
-	el.clear (); el.push_back (4); s10.appendElement (el);
+	el.clear (); el.push_back (2); s10.appendElement (el);
 	el.clear (); el.push_back (3); el.push_back (6); s10.appendElement (el);
 
 	// (ad)c(bc)(ae)
@@ -27,15 +27,15 @@ int  main (int argc, char* argv[])
 	el.clear (); el.push_back (1); el.push_back (4); s20.appendElement (el);
 	el.clear (); el.push_back (3); s20.appendElement (el);
 	el.clear (); el.push_back (2); el.push_back (3); s20.appendElement (el);
-	el.clear (); el.push_back (1); el.push_back (5); s20.appendElement (el);
+	el.clear (); el.push_back (1); el.push_back (3); s20.appendElement (el);
 
 	// (ef)(ab)(df)cb
 	SequenceT s30 = SequenceT ();
 	el.clear (); el.push_back (5); el.push_back (6); s30.appendElement (el);
 	el.clear (); el.push_back (1); el.push_back (2); s30.appendElement (el);
 	el.clear (); el.push_back (4); el.push_back (6); s30.appendElement (el);
-	el.clear (); el.push_back (3); s30.appendElement (el);
 	el.clear (); el.push_back (2); s30.appendElement (el);
+	el.clear (); el.push_back (3); s30.appendElement (el);
 
 	// eg(af)cbc
 	SequenceT s40 = SequenceT ();
@@ -52,7 +52,7 @@ int  main (int argc, char* argv[])
 	S.push_back (&s30);
 	S.push_back (&s40);
 	//PrefixSpanOptions poptions (minsup, length_min, length_max, maxgap);
-    PrefixSpanOptions poptions (1, 0, 10, -1);
+    PrefixSpanOptions poptions (2, 2, 10, 2);
 	//PrefixSpan pspan = PrefixSpan (poptions);
 	//pspan.Mine (S);
 	

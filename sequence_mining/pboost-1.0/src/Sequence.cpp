@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <stdlib.h>
-
+//#include <Lexicon.cpp>
 #include <Sequence.h>
 
 namespace SeqMine
@@ -147,8 +147,66 @@ Sequence::prefixProject (unsigned int item, bool itemJoined,
 	return (NULL);
 }
 
+
+
+
+
 std::vector<const Sequence*>
 Sequence::prefixProjectGap (unsigned int item,
+	const std::vector<unsigned int>* lastPrefixElement, unsigned int ahead) const
+{
+	assert (lastPrefixElement != NULL);
+
+	/* Here we only need to handle vanilla b projections, however, there is a
+	 * twist: we need to project on all sequences which match in a given
+	 * look-ahead (ahead).
+	 */
+	unsigned int eidx = firstElementSplitted () ? 1 : 0;
+	ahead += eidx;
+
+	std::vector<const Sequence*> res;
+
+	for ( ; eidx <= ahead && eidx < lengthElements () ; ++eidx) {
+		unsigned int leidx = lengthSet (eidx);
+
+		for (unsigned int iidx = 0 ; iidx < leidx ; ++iidx) {
+			unsigned int citem = get (eidx, iidx);
+
+			if (citem < item)
+				continue;	// keep searching
+
+			if (citem > item)
+				break;
+
+			/* Found sequence, carry out simple projection
+			 */
+			{
+				unsigned int p_iidx = iidx + 1;
+				unsigned int p_eidx = eidx;
+
+				if (p_iidx == lengthSet (p_eidx)) {
+					p_eidx += 1;
+					p_iidx = 0;
+				}
+				if (p_eidx >= lengthElements ())
+					goto bail;
+
+				res.push_back (new SequenceT (*this, p_eidx, p_iidx));
+			}
+		}
+	}
+
+bail:
+	return (res);
+}
+
+
+
+
+
+
+std::vector<const Sequence*>
+Sequence::prefixFindGap (unsigned int item,
 	const std::vector<unsigned int>* lastPrefixElement, unsigned int ahead) const
 {
 	assert (lastPrefixElement != NULL);
@@ -199,7 +257,7 @@ bail:
 /*** SequenceT class
  ***/
 SequenceT*
-SequenceT::readFromFile (const char* filename)
+SequenceT::readFromFile (const char* filename,  Lexicon & L)
 {
 	SeqMine::SequenceT* seq = new SeqMine::SequenceT ();
 
@@ -231,7 +289,7 @@ SequenceT::readFromFile (const char* filename)
 			unsigned int item;
 
 			is >> item;
-			elemS.insert (item);
+			elemS.insert (L.getId(item));
 		}
 
 		/* Sort the element (set)
@@ -245,6 +303,29 @@ SequenceT::readFromFile (const char* filename)
 
 	return (seq);
 }
+
+
+/* Print with Lexicon */
+void SequenceT::decodeAndPrint(Lexicon & lex)
+{
+	for (unsigned int eidx = 0 ; eidx < lengthElements () ; ++eidx) {
+		if (eidx == 0)
+			std::cout << "[ ";
+		else
+			std::cout << " [ ";
+
+		for (unsigned int iidx = 0 ; iidx < lengthSet (eidx) ; ++iidx) {
+			if (eidx == 0 && iidx == 0 && firstElementSplitted ())
+				std::cout << "_";
+
+			std::cout << lex.getString(get (eidx, iidx)) << " ";
+		}
+		std::cout << "]";
+	}
+
+    return;
+}
+
 
 
 unsigned int
@@ -341,6 +422,11 @@ SequenceT::checkAppendPossible (unsigned int item) const
 }
 
 }
+
+
+
+
+
 
 std::ostream&
 operator<< (std::ostream& os, const SeqMine::Sequence& seq)

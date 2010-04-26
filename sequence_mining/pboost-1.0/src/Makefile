@@ -1,8 +1,9 @@
 
 CPP=g++
-
-INC_BOOST=-I/usr/include
-LIB_BOOST=-L/usr/lib/ -lboost_program_options -lboost_serialization 
+INC_BOOST=-I/usr/local/include/boost-1_33_1
+LIB_BOOST=-lboost_program_options-1_33_1 -lboost_serialization-1_33_1
+#INC_BOOST=-I/usr/include -I../external/boost-1_33_1/include
+#LIB_BOOST=-L/usr/lib/ -L../external/boost-1.33.1/lib -lboost_program_options -lboost_serialization 
 include Makefile.options
 
 # General prequisites:
@@ -42,7 +43,7 @@ SOURCES_INC=Sequence.h PrefixSpan.h PrefixSpanK.h \
 	Classifier.h
 
 # pspan sources
-SOURCES_PSPAN=Sequence.cpp PrefixSpan.cpp PrefixSpanK.cpp PrefixSpanDSPCA.cpp
+SOURCES_PSPAN=Sequence.cpp Lexicon.cpp PrefixSpan.cpp PrefixSpanK.cpp PrefixSpanDSPCA.cpp
 SOURCES_PSPAN_INC=Sequence.h PrefixSpan.h PrefixSpanK.h PrefixSpanDSPCA.h \
 	BestPatternList.h ExplorationGuide2.h
 

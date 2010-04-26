@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <Lexicon.cpp>
 
 #include <assert.h>
 #include <unistd.h>
@@ -41,6 +42,9 @@ public:
 	virtual unsigned int lengthSet (unsigned int eidx) const = 0;
 
 	virtual unsigned int get (unsigned int eidx, unsigned int iidx) const = 0;
+
+
+
 
 #if 0
 	/* Sort by, i) total length, ii) lexicographically
@@ -323,11 +327,14 @@ public:
 	{
 		return (false);
 	}
-
+     
 	virtual const Sequence* prefixProject (unsigned int item, bool itemJoined,
 		const std::vector<unsigned int>* lastPrefixElement,
 		bool maximumGapMining = false) const;
 	virtual std::vector<const Sequence*> prefixProjectGap (
+		unsigned int item, const std::vector<unsigned int>* lastPrefixElement,
+		unsigned int ahead) const;
+	virtual std::vector<const Sequence*> prefixFindGap (
 		unsigned int item, const std::vector<unsigned int>* lastPrefixElement,
 		unsigned int ahead) const;
 };
@@ -391,6 +398,8 @@ public:
 		Occurence.clear ();
 		Occurence.insert (seqIndex);
 	}
+	
+
 
 	/* Produce a vanilla T sequence from any kind of sequence.  (That is,
 	 * project it onto a canonical representation.)
@@ -422,7 +431,7 @@ public:
 	}
 
 	virtual ~SequenceT (void) { }
-
+    void decodeAndPrint(Lexicon & lex);
 	unsigned int lengthElements () const;
 	unsigned int lengthSet (unsigned int eidx) const;
 	unsigned int lastItem (void) const;
@@ -474,9 +483,9 @@ public:
 		return (_firstElementSplitted);
 	}
 
-	/* Read a sequence from a text file, in the set-row format.
-	 */
-	static SequenceT* readFromFile (const char* filename);
+	/* Read a sequence from a text file, in the set-row format.*/
+
+    static SequenceT* readFromFile (const char* filename, Lexicon &lexicon);
 };
 
 
@@ -499,6 +508,7 @@ public:
 	 * Use underlying SequenceT type so as to only use one indirection
 	 * step.
 	 */
+
 	SequenceP (const SequenceP& baseseq, unsigned int eidx, unsigned int iidx)
 		: seqbase (baseseq.seqbase)
 	{
@@ -560,6 +570,8 @@ public:
 
 		return (seqbase.get (ebase + eidx, iidx));
 	}
+    /* Print with Lexicon */
+    
 
 	virtual bool firstElementSplitted (void) const
 	{
