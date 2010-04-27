@@ -33,10 +33,12 @@ for run in xrange(0,total_runs):
             vals = [int(x) for x in line.strip().split('\t')]
             keynames[vals[0]] = 'seq-%i-%s' % (vals[0],'/'.join(map(lambda x: keynames[x], vals[1:])))
             to_replace = vals[1:]
+            got = []
             for v in to_replace: 
-                if replaced.has_key(v):
+                if replaced.has_key(v) and got.count(v) == 0:
                     to_replace.append(replaced[v])
                 replaced[v] = vals[0]
+                got.append(v)
 
     # parse sequences results
     sequences = map(lambda x:\
