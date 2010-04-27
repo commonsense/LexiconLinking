@@ -4,12 +4,12 @@ from collections import defaultdict
 PSPAN_NAME = "lexbuild"
 PROJECT_NAME = "step_names"
 
-
-
 top_k = 10 
 maxgap = 3 
 minlen = 4
 total_runs = 10 
+# TODO:  Only load files that are marked in the project file
+# don't depend on support from lexicon for replacing keys.  Do that instead within this program
 
 for run in xrange(0,total_runs):
     print "Run number %i " % (run)
@@ -18,6 +18,7 @@ for run in xrange(0,total_runs):
     all_sequence_matches = []
     # load keys
     keynames = {}
+    replaced = {}
     for line in open('%s/%s.keys' % (PROJECT_NAME,PROJECT_NAME),'r').readlines():
         try:
             k,v = line.strip().split('\t')
@@ -25,9 +26,16 @@ for run in xrange(0,total_runs):
         except:
             print "Skipping line", line
             pass
+    for line in open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r').readlines():
+        if line[0] != '#':
+            vals = [int(x) for x in line.strip().split('\t')]
+            keynames[vals[0]] = 'seq-%i-%s' % (vals[0],'/'.join(map(lambda x: keynames[x], vals[1:])))
+            for v in vals[1:]:
+                replaced[v] = vals[0]
 
     # parse sequences results
-    sequences = map(lambda x: map(lambda z: int(z), x[2:-3].split(" ] [ ")), open('%s/%s.out' % (PROJECT_NAME,PROJECT_NAME),'r').readlines())
+    sequences = map(lambda x:\
+                    map(lambda z: int(z), x[2:-3].split(" ] [ ")), open('%s/%s.out' % (PROJECT_NAME,PROJECT_NAME),'r').readlines())
     for seq in sequences:
         print seq
 
@@ -39,7 +47,9 @@ for run in xrange(0,total_runs):
                 pos_in_seq = 0
                 slot_vals = []
                 tmp_gap = []
-                for i,el in enumerate(map(lambda x: int(x.strip()), open("%s/seq/%s" %(PROJECT_NAME,file),'r').readlines())):
+                for i,el in enumerate(map(lambda x: (replaced.has_key(int(x.strip())) and replaced[int(x.strip())])\
+                                          or int(x.strip()), \
+                                          open("%s/seq/%s" %(PROJECT_NAME,file),'r').readlines())):
                     if i+(len(seq)-pos_in_seq-1) > len(seq) or pos_in_seq == len(seq):
                         break 
                     if el == seq[pos_in_seq]:
@@ -54,7 +64,8 @@ for run in xrange(0,total_runs):
                     if len(slot_vals) > 0:
                         print "Match for seq %i " % (j), slot_vals
                         for i, vals in enumerate(slot_vals):
-                            sequence_matches[i].append(vals)
+                            if sequence_matches[i].count(vals) == 0:
+                                sequence_matches[i].append(vals)
             # save found sequence gap fillers
             all_sequence_matches.append(sequence_matches)
 
@@ -64,13 +75,17 @@ for run in xrange(0,total_runs):
     for seq, matches in enumerate(all_sequence_matches): 
         print "Sequence %i " % seq , ' / '.join(map(lambda x: keynames[x], sequences[seq]))
         for slot_i, vals in matches.items():
-            if len(vals) >= max_len:
-                max_len = len(vals)
+            lv = len(set(map(lambda x: x[0], vals)))
+            if lv >= max_len:
+                max_len = lv 
                 max_seq = (seq,slot_i)
-
             for val in vals:
                 print "\tSlot %i => %s" % (slot_i,' '.join(map(lambda x: keynames[x],val))), val
 
+    # make sure there's something here
+    if max_len < 2:
+        minlen -= 1 # lower minimum length
+        continue
     print "Writing replacement"
     rf = open('%s/%s.replace' %(PROJECT_NAME,PROJECT_NAME),'a')
     sqn, sln = max_seq
