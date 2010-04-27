@@ -4,13 +4,13 @@ from collections import defaultdict
 PSPAN_NAME = "lexbuild"
 PROJECT_NAME = "step_names"
 
-top_k = 10 
+top_k =  10 
 maxgap = 3 
 minlen = 4
 total_runs = 100
 # TODO:  Only load files that are marked in the project file
 # don't depend on support from lexicon for replacing keys.  Do that instead within this program
-
+seen_seq = []
 for run in xrange(0,total_runs):
     print "Run number %i " % (run)
     os.system("./%s -P %s -v -K %i -G %i --length-min %i" % (PSPAN_NAME,PROJECT_NAME,top_k,maxgap,minlen))
@@ -27,7 +27,6 @@ for run in xrange(0,total_runs):
             print "Skipping line", line
             pass
     replacements = open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r').readlines()
-    #replacements.reverse()
     for line in replacements:
         if line[0] != '#':
             vals = [int(x) for x in line.strip().split('\t')]
@@ -43,7 +42,10 @@ for run in xrange(0,total_runs):
     # parse sequences results
     sequences = map(lambda x:\
                     map(lambda z: int(z), x[2:-3].split(" ] [ ")), open('%s/%s.out' % (PROJECT_NAME,PROJECT_NAME),'r').readlines())
+    sequences = filter(lambda y: seen_seq.count('#'.join(map(lambda x: str(x),y)))== 0,sequences)
+
     for seq in sequences:
+        seen_seq.append('#'.join(map(lambda x: str(x),seq)))
         print seq
 
     # project sequence results 
