@@ -45,7 +45,6 @@ for run in xrange(0,total_runs):
     sequences = filter(lambda y: seen_seq.count('#'.join(map(lambda x: str(x),y)))== 0,sequences)
 
     for seq in sequences:
-        seen_seq.append('#'.join(map(lambda x: str(x),seq)))
         print seq
 
     # project sequence results 
@@ -81,6 +80,7 @@ for run in xrange(0,total_runs):
     # find longest filler and write them to file
     max_len = 0
     max_seq = 0
+    rf = open('%s/%s.replace' %(PROJECT_NAME,PROJECT_NAME),'a')
     for seq, matches in enumerate(all_sequence_matches): 
         print "Sequence %i " % seq , ' / '.join(map(lambda x: keynames[x], sequences[seq]))
         for slot_i, vals in matches.items():
@@ -88,9 +88,14 @@ for run in xrange(0,total_runs):
             if lv >= max_len:
                 max_len = lv 
                 max_seq = (seq,slot_i)
+            if lv >= 2:
+                seen_seq.append('#'.join(map(lambda x: str(x),sequences[seq])))
+                rf.write("#%0.3i%0.2i0%i\t%s\n" % (run,seq,slot_i,'\t'.join(map( lambda x: keynames[x[0]], vals))))
+                items = map(lambda x: str(x[0]), vals)
+                rf.write("%0.3i%0.2i0%i\t%s\n" % (run,seq,slot_i,'\t'.join(items)))
             for val in vals:
                 print "\tSlot %i => %s" % (slot_i,' '.join(map(lambda x: keynames[x],val))), val
-
+    rf.close()
     # make sure there's something here
     if max_len < 2 and minlen == 2:
         print "DONE - goodbye!" 
@@ -99,18 +104,7 @@ for run in xrange(0,total_runs):
         minlen -= 1 # lower minimum length
         continue
 
-    print "Writing replacement"
-    rf = open('%s/%s.replace' %(PROJECT_NAME,PROJECT_NAME),'a')
-    sqn, sln = max_seq
-    items = all_sequence_matches[sqn][sln]
-# check to make sure there are only one item in each gap
-    for item in items:
-        if len(item) > 1:
-            print "Error: item list longer than one", len(item), item
 
-    rf.write("#%0.3i%0.2i0%i\t%s\n" % (run,sqn,sln,'\t'.join(map( lambda x: keynames[x[0]], items))))
-    items = map(lambda x: str(x[0]), items)
-    rf.write("%0.3i%0.2i0%i\t%s\n" % (run,sqn,sln,'\t'.join(items)))
 
 #--dspcacount 10  --length-min 3 -K 2   ; python interpret_stories.py")
 
