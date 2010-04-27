@@ -7,7 +7,7 @@ PROJECT_NAME = "step_names"
 top_k = 10 
 maxgap = 3 
 minlen = 4
-total_runs = 10 
+total_runs = 100
 # TODO:  Only load files that are marked in the project file
 # don't depend on support from lexicon for replacing keys.  Do that instead within this program
 
@@ -26,11 +26,16 @@ for run in xrange(0,total_runs):
         except:
             print "Skipping line", line
             pass
-    for line in open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r').readlines():
+    replacements = open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r').readlines()
+    #replacements.reverse()
+    for line in replacements:
         if line[0] != '#':
             vals = [int(x) for x in line.strip().split('\t')]
             keynames[vals[0]] = 'seq-%i-%s' % (vals[0],'/'.join(map(lambda x: keynames[x], vals[1:])))
-            for v in vals[1:]:
+            to_replace = vals[1:]
+            for v in to_replace: 
+                if replaced.has_key(v):
+                    to_replace.append(replaced[v])
                 replaced[v] = vals[0]
 
     # parse sequences results
@@ -83,9 +88,13 @@ for run in xrange(0,total_runs):
                 print "\tSlot %i => %s" % (slot_i,' '.join(map(lambda x: keynames[x],val))), val
 
     # make sure there's something here
+    if max_len < 2 and minlen == 2:
+        print "DONE - goodbye!" 
+        break
     if max_len < 2:
         minlen -= 1 # lower minimum length
         continue
+
     print "Writing replacement"
     rf = open('%s/%s.replace' %(PROJECT_NAME,PROJECT_NAME),'a')
     sqn, sln = max_seq
