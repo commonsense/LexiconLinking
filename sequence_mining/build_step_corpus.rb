@@ -1,6 +1,6 @@
 
 PROJECT_NAME = "step_names"
-LIMIT = 5
+LIMIT = 2
 
 require 'rubygems'
 require 'active_record'
