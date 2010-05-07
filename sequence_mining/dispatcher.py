@@ -10,6 +10,7 @@ from collections import defaultdict
 
 PSPAN_NAME = "lexbuild"
 PROJECT_NAME = "step_names"
+MIN_SET_SIZE = 3
 
 # load psyco
 try:
@@ -17,6 +18,14 @@ try:
     psyco.full()
 except:
     print "No psyco"
+
+def fnvhash(a): 
+    """Fowler, Noll, Vo Hash function.  Used for hashing sequences""" 
+    h = 2166136261 
+    for i in a: 
+        t = (h * 16777619) & 0xffffffffL 
+        h = t ^ i 
+    return h 
 
 
 def load_index_file():
@@ -50,49 +59,42 @@ def extract_labeled_sequence_gaps(source_seq, test_seq):
         return slot_vals
     return {}
 
-def run_pspan(top_k, maxgap, minlen, totalruns, indicies):
+def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
     # execute pspan
-    #--dspcacount 10  --length-min 3 -K 2   ; python interpret_stories.py")
     os.system("./%s -P %s -v -K %i -G %i --length-min %i" % (PSPAN_NAME,PROJECT_NAME,top_k,maxgap,minlen))
-    seen_seq = []
+    #--dspcacount 10  --length-min 3 -K 2   ; python interpret_stories.py")
     # load keys
-    keynames = {'0':'SPACE'}
+    keynames = defaultdict(str)
+    keynames[0] = "SPACE"
     replaced = {}
-    for line in open('%s/%s.keys' % (PROJECT_NAME,PROJECT_NAME),'r').readlines():
+    max_key = 0
+    kf = open('%s/%s.keys' % (PROJECT_NAME,PROJECT_NAME),'r')
+    kf2 = open('%s/%s.new_keys' % (PROJECT_NAME,PROJECT_NAME),'r')
+    for line in kf.readlines()+kf2.readlines():
         try:
             k,v = line.strip().split('\t')
             keynames[int(k)]=v
+            if int(k) > max_key: max_key = int(k)
         except:
             print "Skipping line", line
             pass
+    kf.close()
+    kf2.close()
     try: 
         rf = open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r')
     except IOError:
         # no file, create it.
         os.system('touch %s/%s.replace' % (PROJECT_NAME,PROJECT_NAME))
         rf = open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r')
-
-    replacements = rf.readlines()
-    for line in replacements:
-        if line[0] != '#':
-            vals = [int(x) for x in line.strip().split('\t')]
-            keynames[vals[0]] = 'seq-%i-%s' % (vals[0],'/'.join(map(lambda x: keynames[x], vals[1:])))
-            to_replace = vals[1:]
-            got = []
-            for v in to_replace: 
-                if replaced.has_key(v) and got.count(v) == 0:
-                    to_replace.append(replaced[v])
-                replaced[v] = vals[0]
-                got.append(v)
-    rf.close()
     # parse sequences results
     sequences = map(lambda x:\
                     map(lambda z: int(z), x[2:-3].split(" ] [ ")), open('%s/%s.out' % (PROJECT_NAME,PROJECT_NAME),'r').readlines())
-    sequences = filter(lambda y: seen_seq.count('#'.join(map(lambda x: str(x),y)))== 0,sequences)
+    sequences = filter(lambda x: seen_seq.count(fnvhash(x))== 0,sequences)
 
     def replace_with_ids(seq):
-        return map(lambda x: (replaced.has_key(x) and replaced[x]) or x, seq)  
-    
+        #return map(lambda x: (replaced.has_key(x) and replaced[x]) or x, seq)  
+        return seq
+
     patterns = defaultdict(list)
     for i, line in enumerate(open("%s/%s.proj" % (PROJECT_NAME,PROJECT_NAME),'r').readlines()):
         for j, v in enumerate(line.split()):
@@ -126,45 +128,63 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies):
                         all_sequence_matches[seq_id][old_key].append([0])
                 for new_key in new_keys:
                     if not all_sequence_matches[seq_id].has_key(new_key) or all_sequence_matches[seq_id][new_key].count(slot_vals[new_key]) == 0:
+
                         all_sequence_matches[seq_id][new_key].append(slot_vals[new_key])
             seq_file.close()
 
     # project sequence results 
     first = False
+    max_len = 0
+    mined_seq = 0
     rf = open('%s/%s.replace' %(PROJECT_NAME,PROJECT_NAME),'a')
+    kf3 = open('%s/%s.new_keys' % (PROJECT_NAME,PROJECT_NAME),'a')
+    to_replace = [] 
     for seq_i in xrange(0,len(sequences)):
-        seq_description = "Sequence %i: " % (seq_i), sequences[seq_i], ' / '.join(map(lambda x: keynames[x], sequences[seq_i]))
-        for gaps in sorted(all_sequence_matches[seq_i].values(), key = lambda x: len(x), reverse=True):
+        for key, gaps in sorted(all_sequence_matches[seq_i].items(), key = lambda x: len(x[1]), reverse=True):
+            seq_description = "Sequence %i: %s " % (seq_i,' / '.join(map(lambda x: keynames[x]+(key == x and "/_" or ""), sequences[seq_i])))
             print "\t Set: ", ' / '.join(map(lambda x: ' '.join(map(lambda y: keynames[y], x)), gaps))
             print gaps, len(gaps)
+            if len(gaps) >= max_len:
+                max_len = len(gaps)
+            if len(gaps) >= MIN_SET_SIZE:
+                mined_seq += 1
+                # hash seq, so you don't mine it again
+                seen_seq.append(fnvhash(sequences[seq_i]))
+                rf.write("#\n#"+seq_description+"\n")
+                rf.write("#%0.2i0%i\t%s\n" % (seq_i,key,'\t'.join(map( lambda x: ' '.join(map(lambda y: keynames[y], x)), gaps))))
+                rf.write("%0.2i0%i\t%s\n" % (seq_i,key,'\t'.join(map( lambda x: ' '.join(map(lambda y: str(y), x)), gaps))))
+                max_key += 1
+                new_key = max_key
+                kf3.write("%i\t%s --- %s\n" % (new_key,seq_description,','.join(map(lambda y: ' '.join(map(lambda x: keynames[x],y)),gaps))))
+                for val in gaps:
+                    print "\tSlot %i => %s" % (key,' '.join(map(lambda x: keynames[x],val))), val
+                    to_replace.append((val, new_key))
+                    if keynames.has_key(new_key):
+                        keynames[new_key] = ' '.join(map(lambda x: keynames[x],val)) 
+                    else:
+                        keynames[new_key] += ' '.join(map(lambda x: keynames[x],val)) 
 
-    print "%i sequences in total" % (len(sequences))
-if False:
-    max_len = 0
-    max_seq = 0
-
-    for seq, matches in enumerate(all_sequence_matches): 
-        print "Sequence %i " % seq , ' / '.join(map(lambda x: keynames[x], sequences[seq]))
-        for slot_i, vals in matches.items():
-            if lv >= max_len:
-                max_len = lv 
-                max_seq = (seq,slot_i)
-            if lv >= 3:
-                seen_seq.append('#'.join(map(lambda x: str(x),sequences[seq])))
-                rf.write("#%0.3i%0.2i0%i\t%s\n" % (run,seq,slot_i,'\t'.join(map( lambda x: keynames[x[0]], vals))))
-                items = map(lambda x: str(x[0]), vals)
-                rf.write("%0.3i%0.2i0%i\t%s\n" % (run,seq,slot_i,'\t'.join(items)))
-            for val in vals:
-                print "\tSlot %i => %s" % (slot_i,' '.join(map(lambda x: keynames[x],val))), val
     rf.close()
-    # make sure there's something here
-    if max_len < 3 and minlen == 2:
-        print "DONE - goodbye!" 
-        #break
-    if max_len < 3:
-        minlen -= 1 # lower minimum length
-        #continue
+    kf3.close()
+    to_replace = map(lambda x: (' '.join(map(lambda y: str(y), x[0])),str(x[1])), sorted(to_replace, key=lambda x: len(x[0])))
+    # replace values in sequence files 
+    for root, dirs, files in os.walk('%s/seq' % PROJECT_NAME):
+        for fname in files:
+            ofile = open('%s/seq/%s' % (PROJECT_NAME, fname), 'r')
+            taint = False
+            test_seq = ' '.join(map(lambda x: (x.strip()), ofile.readlines()))
+            for (src,sink) in to_replace:
+                if src in test_seq:
+                     test_seq.replace(src,sink)
+                     taint = True
+            if taint:
+                ofile.close()
+                wfile =  open('%s/seq/%s' % (PROJECT_NAME, fname),'w')
+                wfile.writelines('\n'.join(test_seq.split(" ")))
+                wfile.close()
 
+    print "Mined %i sequences in total" % mined_seq 
+    return max_len, mined_seq 
 
 def test0():
     print extract_labeled_sequence_gaps([1,2,3,4],[1,2,5,7,3,6,4])    #=> {2:[5,7],3:[5]}
@@ -174,19 +194,35 @@ def test0():
 
 
 def test1():
-    top_k =  50
-    maxgap = 3 
-    minlen = 4
-    total_runs = 1
+    top_k =  80
+    maxgap = 1 
+    minlen = 5
+    total_runs = 20
     indices = load_index_file()
     # TODO:  Only load files that are marked in the project file
     # don't depend on support from lexicon for replacing keys.  Do that instead within this program
     for run in xrange(0,total_runs):
         print "Run # %i" % run
-        run_pspan(top_k, maxgap, minlen, total_runs, indices)
-
-
-
+        max_len, num_sequences = run_pspan(top_k, maxgap, minlen, total_runs, indices)
+        if max_len < MIN_SET_SIZE and minlen == 2:
+            print "DONE - goodbye!" 
+            break
+        elif max_len < MIN_SET_SIZE:
+            if maxgap == 1:
+                maxgap = 3 
+            else:
+                maxgap = 1
+                minlen -= 1 # lower min length
+    
+    # write out new key
+    file_index = load_index_file()
+    all_input_sequences = open('%s/%s.all' % (PROJECT_NAME, PROJECT_NAME), 'r').readlines()
+    all_output_sequences = open('%s/%s.map' % (PROJECT_NAME, PROJECT_NAME), 'w')
+    for i,fname in enumerate(file_index):
+        ofile = open(fname, 'r')
+        out_seq = ' '.join(map(lambda x: (x.strip()), ofile.readlines()))
+        all_output_sequences.write("%s\t\t%s\n" % (all_input_sequences[i].strip(), out_seq))
+    all_output_sequences.close()
 
 if __name__ == '__main__':
     test1()
