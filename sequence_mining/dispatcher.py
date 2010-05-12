@@ -26,7 +26,10 @@ def fnvhash(a):
         t = (h * 16777619) & 0xffffffffL 
         h = t ^ i 
     return h 
-
+    
+def replace_with_ids(seq):
+    return map(lambda x: (replaced.has_key(fnvhash([x])) and replaced[fnvhash([x])]) or x, seq)
+        
 
 def load_index_file():
     return [x.strip() for x in open("%s/%s.index" % (PROJECT_NAME,PROJECT_NAME), 'r').readlines()]
@@ -61,6 +64,8 @@ def extract_labeled_sequence_gaps(source_seq, test_seq):
 
 def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
     # execute pspan
+    fname = "%s/%s"
+    os.system("rm %s.new_keys; touch %s.new_keys; rm %s.replace; touch %s.replace" % (fname,fname,fname,fname))
     os.system("./%s -P %s -v -K %i -G %i --length-min %i" % (PSPAN_NAME,PROJECT_NAME,top_k,maxgap,minlen))
     #--dspcacount 10  --length-min 3 -K 2   ; python interpret_stories.py")
     # load keys
@@ -69,8 +74,7 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
     replaced = {}
     max_key = 0
     kf = open('%s/%s.keys' % (PROJECT_NAME,PROJECT_NAME),'r')
-    kf2 = open('%s/%s.new_keys' % (PROJECT_NAME,PROJECT_NAME),'r')
-    for line in kf.readlines()+kf2.readlines():
+    for line in kf.readlines():
         try:
             k,v = line.strip().split('\t')
             keynames[int(k)]=v
@@ -79,6 +83,13 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
             print "Skipping line", line
             pass
     kf.close()
+    kf2 = open('%s/%s.new_keys' % (PROJECT_NAME,PROJECT_NAME),'r')
+    for line in kf2.readlines():
+        items = line.strip().split('\t')
+        key = int(items[0])
+        for item in items:
+            vals = map(lambda x: int(x), item.split())
+            replaced[fnvhash(vals)] = key
     kf2.close()
     try: 
         rf = open('%s/%s.replace' % (PROJECT_NAME,PROJECT_NAME),'r')
@@ -91,9 +102,7 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
                     map(lambda z: int(z), x[2:-3].split(" ] [ ")), open('%s/%s.out' % (PROJECT_NAME,PROJECT_NAME),'r').readlines())
     sequences = filter(lambda x: seen_seq.count(fnvhash(x))== 0,sequences)
 
-    def replace_with_ids(seq):
-        #return map(lambda x: (replaced.has_key(x) and replaced[x]) or x, seq)  
-        return seq
+
 
     patterns = defaultdict(list)
     for i, line in enumerate(open("%s/%s.proj" % (PROJECT_NAME,PROJECT_NAME),'r').readlines()):
@@ -155,7 +164,8 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
                 rf.write("%0.2i0%i\t%s\n" % (seq_i,key,'\t'.join(map( lambda x: ' '.join(map(lambda y: str(y), x)), gaps))))
                 max_key += 1
                 new_key = max_key
-                kf3.write("%i\t%s --- %s\n" % (new_key,seq_description,','.join(map(lambda y: ' '.join(map(lambda x: keynames[x],y)),gaps))))
+                
+                kf3.write("%i\t%s\n" % (new_key,'\t'.join(map(lambda y: ' '.join(map(lambda x: str(x),y)), gaps))))
                 for val in gaps:
                     print "\tSlot %i => %s" % (key,' '.join(map(lambda x: keynames[x],val))), val
                     to_replace.append((val, new_key))
@@ -220,7 +230,7 @@ def test1():
     all_output_sequences = open('%s/%s.map' % (PROJECT_NAME, PROJECT_NAME), 'w')
     for i,fname in enumerate(file_index):
         ofile = open(fname, 'r')
-        out_seq = ' '.join(map(lambda x: (x.strip()), ofile.readlines()))
+        out_seq = ' '.join(replace_with_ids(map(lambda x: (x.strip()), ofile.readlines())))
         all_output_sequences.write("%s\t\t%s\n" % (all_input_sequences[i].strip(), out_seq))
     all_output_sequences.close()
 
