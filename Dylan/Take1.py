@@ -1,19 +1,21 @@
 import scipy
+import pymongo
 
 ## an exceedingly simple test case
-testWeights = scipy.array([5,3,5],[4,4,4],[0,10,0])
 testWeights = scipy.array([[5,3,5],[4,4,4],[0,10,0]])
 edge = ("meow","rabbit",5)
 
 testNounSenses = ["dog","cat","rabbit"]
 testVerbSenses = ["run","breathe","meow"]
 
-testVerbSenses = [["run",0],["breathe",1],["meow",2]] ## [[verbSenseName,first_Class_Index,second_Class_Index, third...],...]
-testNounSenses = [["dog",0],["cat",1],["rabbit",2]]
+##testVerbSenses = [["run",0],["breathe",1],["meow",2]] ## [[verbSenseName,first_Class_Index,second_Class_Index, third...],...]
+##testNounSenses = [["dog",0],["cat",1],["rabbit",2]]
+
+## verb = row, noun = column
 
 
 ## translate to unicode:
-def toUincode(l):
+def toUnicode(l):
     return [[unicode(l[i][0]), l[i][1]] for i in range(len(l))]
 
 testNounSenses = toUnicode(testNounSenses)
@@ -32,26 +34,44 @@ testVerbSenses = toUnicode(testVerbSenses)
 class Lattice:
 
 
-    ## IN: list of verbSenses, list of nounSenses, and a [(len(verbSenses))x(len(nounSenses))] array
-    ## description of verbSenses/nounSenses:
-    ## [[verbName,first_Sense_Index,second_Sense_Index, third...],...]
-    def __init__(self, verbSenses, nounSenses, weights):
+    ## IN: list of verbs, list of nouns, and a noun-verb pairs list of format [[noun, verb, weight]...]
+    def __init__(self, verbs, nouns, nvList):
         self.verbSenseNum = 0
         self.nounSenseNum = 0
-        self.weights = weights
-        ## weights: a matrix of verb sense vs noun sense weights: weight = weights[verb][noun]
-        ## each verb gets a list of weights for nouns
-        ## default value = None
 
-        self.verbSenses = verbSenses ## array of strings
-        self.nounSenses = nounSenses ## array of strings
+        self.verbs = numpy.array(verbs)
+        self.nouns = numpy.array(nouns)
+        self.weights = createWeights(nvList)
 
-        self.verbs = [self.verbSenses[i][0] for i in range(len(self.verbSenses))] ## names (strings)
-        self.nouns = [self.nounSenses[i][0] for i in range(len(self.nounSenses))]
+        ## given a numpy array of format [verb, noun, num], returns a matrix with that info.
+    def createWeights(nvList):
+        ## (just in case, make the nvList a numpy array)
+        nvList = numpy.aray(nvList)
 
+        weights = numpy.zeros(nvList.shape, dtype=int)
+        for nvPair in nvList:
+            vrow = numpy.where(self.verbs == nvPair[0])
+            ncol = numpy.where(self.nouns == nvPair[1])
+            assert (len(vrow) == 1), str.format("Duplicate verb name if >0, Invalid name passed to createWeights if ==0 : {0}", len(vrow))
+            assert (len(ncol) == 1), str.format("Duplicate noun name if >0, Invalid name passed to createWeights if ==0 : {0}", len(ncol))
+## for now, no print, just assertion
+#             if (len(vrow) != 1):
+#                 print str.format("Duplicate verb name if >0, Invalid name passed to createWeights if ==0 : {0}", len(vrow))
+#             if (len(ncol) != 1):
+#                 print str.format("Duplicate noun name if >0, Invalid name passed to createWeights if ==0 : {0}", len(ncol))
+            weights[vrow][ncol] = nvPair[2]
+        return weights
 
+    ## given a verb, look in the ordered list of verbs to find the correct index
+    ## x = verb or noun (ex: "run")
+    ## xlist = self.verbs or self.nouns (ex: self.verbs)
+    def safeFindIndex(x, xlist):
+        assert (x in xlist), str.format("Invalid verb/noun {0}", x)
+        loc = numpy.where(xlist == x)
+        assert (len(loc) == 1), str.format("{0} occurences of {1} in verb/noun list", (x, len(loc)))
+        return loc
 
-	## given a verbSense and nounSense, return the corresponding coordinates in self.weights
+    ## given a verbSense and nounSense, return the corresponding coordinates in self.weights
     def getIndices(self, verbSense, nounSense):
         ## check that verb/noun senses are in the dataset
         assert (verbSense in self.verbs), "The verb sense %s is not in the dataset." % (verbSense)
@@ -131,3 +151,15 @@ class Lattice:
 
         ## for now, sum weights
         ## will deal with multiple senses/pointers issue later
+
+
+    # start_time = time()
+#     from pymongo import Connection
+#     connection = Connection('localhost')
+#     db = connection.sm
+
+
+## sort by cluster membership
+## plot a binary matrix
+
+## n v num
