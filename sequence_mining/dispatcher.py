@@ -27,6 +27,7 @@ def fnvhash(a):
         h = t ^ i 
     return h 
     
+replaced = {}
 def replace_with_ids(seq):
     return map(lambda x: (replaced.has_key(fnvhash([x])) and replaced[fnvhash([x])]) or x, seq)
         
@@ -71,7 +72,6 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
     # load keys
     keynames = defaultdict(str)
     keynames[0] = "SPACE"
-    replaced = {}
     max_key = 0
     kf = open('%s/%s.keys' % (PROJECT_NAME,PROJECT_NAME),'r')
     for line in kf.readlines():
