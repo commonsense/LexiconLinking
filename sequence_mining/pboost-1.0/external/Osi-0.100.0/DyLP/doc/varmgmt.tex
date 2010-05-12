@@ -1,0 +1,226 @@
+\section{Variable Management}
+\label{sec:VariableManagement}
+
+Activation and deactivation of variables and constraints is a core activity
+for dynamic simplex.
+The activation or deactivation of variables can occur as an independent
+activity or as a consequence of constraint activation and deactivation
+(\vid \secref{sec:ConstraintManagement}).
+During normal execution (\vid Fig.~\ref{fig:DylpFlow}) variables are
+activated (\pgmid{dy_activateVars}) when primal simplex returns an
+indication of infeasibility or when
+primal or dual simplex achieve optimality.
+Variables are deactivated (\pgmid{dy_deactivateVars}) when dual simplex
+achieves optimality and returns to primal phase~II after adding variables.
+
+In a somewhat different context, dual feasible variables are evaluated as
+dual bounding constraints and activated (\pgmid{dy_dualaddvars}) when dual
+simplex indicates an unbounded dual (infeasible primal).
+Dual feasible variables are also activated (\pgmid{dy_activateVars}) when
+dual simplex will be reentered
+after adding constraints without an intervening primal simplex phase.
+The motivation is to increase the probability that the dual problem
+will remain bounded.
+
+Figure \ref{fig:VarmgmtCalls} shows the call structure for the top-level
+variable activation and deactivation routines.
+\begin{figure}[htbp]
+\centering
+\includegraphics{\figures/varmgmtcalls}
+\caption{Call Graph for Variable Management Routines}\label{fig:VarmgmtCalls}
+\end{figure}
+
+\subsection{Variable Management Primitives}
+
+There are two primitive variable management routines:
+\begin{itemize}
+  \item
+  \pgmid{dy_actNBPrimArch} activates a primal architectural variable into the
+  nonbasic partition.
+
+  \item
+  \pgmid{dy_deactNBPrimArch} deactivates a nonbasic primal architectural
+  variable.
+\end{itemize}
+
+\dylp assumes that inactive variables are feasible and at bound and provides
+no independent way to specify the value of the variable.
+As a special case, inactive free variables are assumed to have the value zero.
+A consequence of this is that it is not possible to deactivate a basic
+variable;
+the variable must first be forced into the nonbasic partition.
+Unless the variable is basic at bound, this will change the variable's value.
+The special-purpose routine \pgmid{dy_deactBPrimArch} performs this service
+when \dylp is attempting to force primal feasibility by deactivating infeasible
+basic variables.
+
+\dylp provides no method for activating an architectural variable into the
+basic partition.
+When activating a constraint, the logical variable associated with the
+constraint is always used as the new basic variable.
+
+\subsection{Activation of Variables}
+\label{sec:VariableActivation}
+
+\dylp looks for variables to activate whenever optimality
+is attained for the current set of constraints and variables, or when
+the active system is found to be infeasible.
+The set of inactive variables is scanned
+and any variables with favourable
+reduced costs are activated and placed in the primal nonbasic partition.
+
+If an optimal solution has been found for the active constraint system
+by either primal or dual simplex, \pgmid{scanPrimVarStdAct} is called
+to select a set of variables to be activated under the assumption that
+primal phase~II iterations will resume after the variables are added.
+The reduced costs are calculated using the original objective function
+for the problem.
+Variables are selected for activation if their reduced cost indicates they
+are not at their optimal bound (\ie, dual infeasible).
+
+If phase~I of the primal simplex has found the problem to be infeasible,
+\pgmid{scanPrimVarStdAct} is again used to select the set of variables to be
+activated, but the reduced costs are calculated using the phase~I objective
+(as described in \secref{sec:PrimalPhaseI}).
+Primal phase~I iterations resume after variables are added.
+
+Normally, when dual simplex indicates optimality, primal phase~II is executed
+after adding variables with favourable (dual infeasible) reduced costs.
+It can happen, however, that there are no such variables.
+In this case, \dylp will attempt to add violated constraints and, if any are
+found, resume execution of dual simplex.
+To increase the likelihood that the dual problem will remain bounded,
+\dylp will again attempt to add variables before resuming dual simplex
+iterations, but the criteria in this case will be variables whose
+reduced costs are dual feasible (\ie, unfavourable from a primal perspective).
+
+Activating a variable into the nonbasic partition
+will not change to the basis, primal or dual variable values, or DSE pricing
+information.
+The reduced cost and the projected column norm used for PSE pricing must
+be properly initialised for the new variable.
+The action taken for the projected column norm depends on the context of
+variable activation.
+If primal simplex was executing prior to variable activation and will
+be resumed after variable activation, the projected column norms are
+up-to-date and correct values must be calculated for the new variables.
+In other cases, PSE pricing information will be initialised when
+primal simplex iterations resume and no action is required.
+
+If the dual simplex has found the problem to be primal infeasible (dual
+unbounded), the problem of selecting variables to add should be viewed
+from the perspective of looking for dual constraints which will bound
+the problem.
+The goal is to activate one or more dual constraints and return to
+dual simplex iterations.
+
+The selection of the candidate entering dual variable $y_i$ (leaving primal
+variable $x_i$) has fixed the direction of travel, $\zeta_i$.
+The best outcome will be to add dual constraints (primal variables) which
+block travel in the direction $\zeta_i$.
+If that isn't possible (because activating any bounding dual constraint would
+result in the loss of dual feasibility) a second possibility is to activate
+variables which will change the dual reduced costs (the values of the primal
+basic variables) so that a different dual variable $y_k$ is selected to enter.
+The hope is that motion in a different direction $\zeta_k$ may make it
+possible to activate constraints which will bound the dual without loss of
+feasibility.
+
+The subroutine \pgmid{dy_dualaddvars} controls the search process, and can
+activate three classes of variables, for convenience called type~1, type~2,
+and type~3.
+
+Type~1 variables are those variables which constitute feasible dual
+constraints which bound the dual problem.
+These can be activated and placed in the primal nonbasic partition without
+losing dual feasibility.
+Type~1 variables are preferred, as \pgmid{dy_dualaddvars} can activate any
+number of them in a given call.
+
+If there are no type~1 variables, \pgmid{dy_dualaddvars} considers type~2
+variables.
+Type~2 variables are those variables which constitute dual constraints that
+bound the dual problem and which, while not dual feasible if activated into
+the primal nonbasic partition, will give a dual feasible solution if
+activated and immediately pivoted into the basis.
+This is equivalent to adding a cutting plane which renders the current
+solution infeasible and executing a single pivot to regain feasibility;
+necessarily, the objective will deteriorate.
+In the context of Table \ref{Tbl:DualPivotRules}
+in \secref{sec:DualStdSelectInVar},
+this amounts to
+selecting a pivot with the signs of $\overline{c}_j$ and $\overline{a}_{ij}$
+reversed.
+The pivot is sufficiently similar to a normal dual pivot that it can be
+handled by \pgmid{dy_dualpivot}.
+It is not standard in that the entering primal variable will move
+away from its bound toward the infeasible side (\eg, $x_j$ would enter falling
+from its lower bound with $\overline{c}_j < 0$ and $\overline{a}_{ij} > 0$).
+One such variable can be activated on each call to \pgmid{dy_dualaddvars}.
+
+In the absence of type~1 or type~2 variables, type~3 variables are considered.
+These are variables which are not dual feasible at their current
+bound but which will reduce the infeasibility of the leaving primal variable
+if activated and changed to their opposite bound.
+The motivation for activating a type~3 variable is that it makes the reduced
+cost of $y_i$ less desirable, so that some other variable $y_k$ can be
+selected to enter (thus moving in a different direction $\zeta_k$).
+The routine \pgmid{type3activate} will attempt to activate as many type~3
+variables as required in order to change the entering dual variable $y_i$.
+
+Activation of type~2 or type~3 variables is generally not cost-effective.
+By default, \dylp limits \pgmid{dy_dualaddvars} to type~1 activations.
+The dynamic simplex algorithm will revert to primal phase~I if no
+type~1 variables exist.
+An option allows the client to specify whether type~1, type~2, or type~3
+variables will be considered.
+
+Activation of a type~1 variable is no different from any other activation into
+the nonbasic partition, as described above.
+For type~2 variables, the pivot will cause a change of basis.
+\pgmid{dy_dualpivot} will take care of the required calculations and updates
+in the context of dual simplex.
+For type~3 variables, the basis doesn't change, and the values of the dual
+variables and DSE norms are unchanged.
+The values of the primal variables do change, however, and this changes the
+DSE pricing information.
+
+\subsection{Deactivation of Variables}
+\label{sec:VariableDeactivation}
+
+Deactivation of variables occurs when dual simplex finds an optimal
+solution for the active constraint system and variable activation identifies
+dual infeasible variables for activation.
+In this case, variable deactivation is performed before entering
+primal phase~II simplex.
+The subroutine \pgmid{dy_deactivateVars} is called to deactivate variables
+according to a client-specified threshold, expressed as a percentage of
+the maximum unfavourable reduced cost over all active variables.
+
+Specifically, \pgmid{dy_deactivateVars} scans the reduced costs of the active
+variables and determines a pair of values
+$\displaystyle \check{c} = \max_{\{k : c_k < 0\}}\abs{c_k}$ and
+$\displaystyle \hat{c} = \max_{\{k : c_k > 0\}}\abs{c_k}$.
+It then deactivates variables with $c_k > \hat{c}(\pgmid{dy_tols.purgevar})$
+or $c_k < -\check{c}(\pgmid{dy_tols.purgevar})$.
+
+\subsection{Initial Variable Selection}
+
+For a cold start, the initial set of active variables is completely determined
+by the initial set of constraints.
+All variables referenced in the constraints are activated.
+As noted in \secref{sec:Startup}, the client can set parameters which will
+cause variable deactivation to be executed prior to starting simplex
+iterations.
+
+For a hot start, the initial set of active variables is the set that was
+active at return from the previous call to \pgmid{dylp}.
+
+For a warm start, the set of active constraints is specified by the basis.
+The initial set of active variables can be determined from the constraints
+as for a cold start, or the client can specify a set of variables which
+should be activated as the active constraint system is created.
+
+As noted in \secref{sec:Startup}, for a hot or warm start the client can
+set parameters which will cause variable activation to be executed prior
+to starting simplex iterations.

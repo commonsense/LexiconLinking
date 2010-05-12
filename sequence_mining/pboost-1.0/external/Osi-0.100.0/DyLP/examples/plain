@@ -1,0 +1,168 @@
+#!/bin/csh -f
+
+# svn/cvs: $Id: plain 226 2008-04-17 00:48:20Z lou $
+
+# Simple csh script to run the osi_dylp main program. Mainly to make it a bit
+# easier to find MPS files and get the parameters right. Also, the script
+# will look for a dylp options (.spc) file and add it to the osi_dylp command
+# line.
+
+# Edit here to choose the C interface (osi_dylp) or the OSI interface
+# (odsi+dylp) as the default.
+
+set wrapper = (./osi_dylp)
+# set wrapper = (./odsi+dylp)
+
+# Check for MPS file directories under ../../Data
+
+set mpsSearchDirs
+foreach dir (`ls ../../Data`)
+  set dir = "../../Data/$dir"
+  if (-d $dir && -x $dir) then
+    set mpsSearchDirs = ($mpsSearchDirs $dir)
+  endif
+end
+set mpsSearchDirs = (. $mpsSearchDirs)
+
+# Usage message
+
+set usage =  "plain [-odsi|-dylp] [additional parameters] <mps file>"
+set usage1 = "  Where -odsi selects the odsi+dylp (OsiDylp/C++) wrapper"
+set usage2 = "        -dylp selects the osi_dylp (native/C) wrapper"
+set usage3 = "        and [additional parameters] should be appropriate"
+set usage4 = "        for the specified wrapper."
+set usage5 = "        The default wrapper is $wrapper[1]"
+set usage5 = "        The default wrapper is $wrapper[1]"
+set usage6 = "        -h anywhere in the command line gets this help message."
+set usage7 = "        MPS file search directories are $mpsSearchDirs"
+
+if ($#argv < 1) then
+  set argv = "--help"
+endif
+
+# Does the user want help?
+
+if ("$argv[*]" =~ *-h*) then
+  echo "Usage: $usage"
+  echo $usage1:q
+  echo $usage2:q
+  echo $usage3:q
+  echo $usage4:q
+  echo $usage5:q
+  echo $usage6:q
+  echo $usage7:q
+  if (-x $wrapper) then
+    $wrapper -h
+  else
+    echo "Execute $wrapper -h to see the help text for $wrapper."
+  endif
+  exit
+endif
+
+# See if the user has specified a front-end on the command line.
+
+switch ($argv[1])
+  case -odsi:
+    set wrapper = "./odsi+dylp"
+    shift
+    breaksw
+  case -dylp:
+    set wrapper = "./osi_dylp"
+    shift
+    breaksw
+endsw
+
+# MPS file should be the last parameter
+
+set example = $argv[$#argv]
+set mpsdir
+set mpsfile
+set mpsext
+
+# Search for an mps file. The reason for putting the loop with suffixes on the
+# outside is so that we'll find the shortest suffix, whereever it might reside.
+
+foreach ext ("" ".mps" ".gz" ".mps.gz")
+  set candidate = ${example}${ext}
+  foreach dir ($mpsSearchDirs)
+    if (-e $dir/$candidate) then
+      set mpsfile = $dir/$candidate
+      set mpsdir = $dir
+      set mpsext = $ext
+      break ; break
+    endif
+  end
+end
+
+if ("$mpsfile" == "") then
+ echo "Can't"' locate mps file for "'$example'".'
+ echo "Usage: $usage"
+ echo $usage1:q
+ echo $usage2:q
+ echo $usage3:q
+ echo $usage4:q
+ echo $usage5:q
+ echo $usage6:q
+ $wrapper -h
+ exit
+endif
+
+if ("$mpsext" == "") then
+  set example = $example:r
+endif
+
+# Dylp's native mps reader does not read from compressed files. Unzip if
+# necessary.
+
+if ($wrapper =~ *osi_dylp && $mpsfile =~ *.gz) then
+  set lclext = `echo $mpsext | sed -e 's/\.gz//'`
+  set unzipmpsfile = ./${example}${lclext}
+  gunzip -c $mpsfile > $unzipmpsfile
+  echo "Created uncompressed copy of $mpsfile as $unzipmpsfile."
+else
+  set unzipmpsfile = $mpsfile
+endif
+
+# Check for example.spc in the directory whee the mps file was located, and in
+# the current directory. Failing that, look for generic.spc in the same
+# places.
+
+if (-e $mpsdir/${example}.spc) then
+  set spcfile = "-o $mpsdir/${example}.spc"
+else if (-e ${example}.spc) then
+  set spcfile = "-o ${example}.spc"
+else if (-e $mpsdir/generic.spc) then
+  set spcfile = "-o generic.spc"
+else if (-e generic.spc) then
+  set spcfile = "-o generic.spc"
+else
+  set spcfile
+endif
+
+# If there are two or more arguments, the rest are assumed to be
+# command line parameters.
+
+if ($#argv > 1) then
+  @ flagcnt = $#argv - 1
+  set flags = "$argv[1-$flagcnt]"
+else
+  set flags = ""
+endif
+
+# Go to it.
+
+echo -n "Processing $mpsfile"
+if ("$spcfile" != "") then
+  echo -n ", spc = $spcfile"
+endif
+if ("$flags" != "") then
+  echo -n ", flags = $flags"
+endif
+echo "."
+
+echo "$wrapper $spcfile -m ${unzipmpsfile} -L ${example}.log -O ${example}.out $flags"
+
+$wrapper $spcfile \
+      -m ${unzipmpsfile} -L ${example}.log \
+      -O ${example}.out $flags
+

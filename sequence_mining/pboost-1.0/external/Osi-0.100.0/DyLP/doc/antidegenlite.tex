@@ -1,0 +1,339 @@
+\section{Lightweight Anti-Degeneracy Measures Based on Hyperplane Alignment}
+\label{sec:AntiDegenLite}
+
+\newcommand{\nblb}{\,\underline{\makebox[\width-3pt][c]{$\scriptstyle \,N$}}}
+\newcommand{\nbub}{\;\overline{\makebox[\width-3pt][c]{$\scriptstyle N\,$}}}
+
+In addition to the perturbed subproblem anti-degeneracy algorithm described in
+\secref{sec:PerturbedAntiDegeneracy}, \dylp provides a light-weight
+anti-degeneracy mechanism based on hyperplane alignment.
+In the code and documentation, this is referred to as `anti-degen lite'.
+
+Each constraint $a_k x \leq b_k$ defines an associated hyperplane at equality.
+In the absence of degeneracy, a simplex pivot consists of moving away from one
+hyperplane along an edge until another hyperplane blocks further progress.
+The hyperplane being left becomes loose, and the blocking hyperplane becomes
+tight.
+The choice of entering variable $x_j$ determines the constraint that will
+become loose,
+and the choice of leaving variable $x_i$ determines the
+constraint that will become tight.
+
+Ideally, the choice of constraints is unique, but life is seldom ideal.
+Most often the lack of uniqueness is due to degeneracy, in which one
+or more basic variables are at their upper or lower bounds.
+Geometrically, there are more tight constraints than required to define the
+current extreme point.
+In this case the change of basis that occurs with the pivot will not result in
+a move to a new extreme point.
+
+This section describes a suite of measures based on hyperplane alignment which
+try to better the odds of selecting hyperplanes which will form an edge that
+escapes from the degenerate extreme point.
+
+Because all constraints at a degenerate vertex are tight, some terminology will
+be useful to describe the changes associated with a pivot.
+For this section only, the terms activate and deactivate will be used as
+follows:
+\begin{itemize}
+  \item
+  When the slack variable for a constraint moves to the basic partition, the
+  constraint is deactivated.
+  When the slack variable moves to the nonbasic partition, the constraint is
+  activated.
+
+  \item
+  When an architectural variable moves to the basic partition, the relevant
+  bound constraint is deactivated.
+  When an architectural variable moves to the nonbasic partition, the
+  relevant bound constraint is activated.
+\end{itemize}
+
+\subsection{Activation of Constraints}
+
+In both the primal and dual simplex algorithms, the constraint which is
+activated by a pivot depends on the leaving variable and its direction of
+motion.
+Before discussing the types of alignment calculations, it will be useful to
+discuss the activation of constraints.
+Knowing the type of constraint (`$\leq$' or `$\geq$') is necessary because it
+determines the direction of the normal with respect to the feasible region.
+
+\dylp assumes that the majority of explicit constraints of the primal problem
+are of the form $a_k x \leq b_k$.
+It also understands range constraints of the form
+$\check{b}_k \leq a_k x \leq b_k$.
+These are implemented by placing an upper bound on the associated slack
+variable $s_k$, but for purposes of determining the constraint to be activated
+we need to recognise that there are really two
+constraints, $a_k x \geq \check{b}_k$ and $a_k x \leq b_k$.
+
+Bounded variables are handled implicitly by the primal simplex algorithm.
+When a bounded variable becomes nonbasic at its lower bound, the constraint
+$x_k \geq l_k$ is activated; when it becomes nonbasic at its upper bound,
+the constraint $x_k \leq u_k$ is activated.
+
+A final complication is introduced in phase I of the primal simplex, where
+it's possible to approach a constraint from the `wrong' side in the process
+of finding a primal feasible basic solution.
+For example, if a slack variable $s_k < 0$ will increase and leave the basis
+at 0, the constraint which is becoming tight is actually $a_k x \geq b_k$.
+\aside{Is this really a valid insight? In terms of blocking motion, it's true.
+In terms of alignment with the objective, for example, I have doubts.}
+
+Turning to the dual problem, the question of what constraint is being activated
+is substantially obscured by the mechanics of running the dual simplex
+algorithm from the primal data structures.
+A much clearer picture can be obtained by expanding the primal system to
+include explicit upper and lower bound constraints and examining the
+resulting dual constraints
+(\cite[\S3.4]{For92}, or see \cite{Haf98a} for an extended development).
+Briefly, let $y$ be the dual variables associated with the original
+explicit constraints $a_k x \leq b_k$
+(the architectural constraints), $\check{y}$ be the dual variables associated
+with the lower bound constraints, and $\hat{y}$ be the dual variables
+associated with the upper bound constraints.
+A superscript $\underline{N}$ will represent the set of primal variables at
+their lower bound, $\overline{N}$ the set of primal variables at their upper
+bound, and $B$ the set of basic primal variables.
+The set of dual constraints can then be written as
+\begin{equation*}
+\begin{aligned}
+yB - \check{y}^{B}I + \hat{y}^{B}I & = c^B \\
+y\underline{N} - \check{y}^{\nblb}I +
+	\hat{y}^{\nblb}I & = c^{\nblb} \\
+y\overline{N} - \check{y}^{\nbub}I +
+	\hat{y}^{\nbub}I & = c^{\nbub}
+\end{aligned}
+\end{equation*}
+where the first term in each dual constraint comes from the primal
+architectural constraints, the second term from the lower bound constraints,
+and the third term from the upper bound constraints.
+The variables $\check{y}^{B}$, $\hat{y}^{B}$, $\hat{y}^{\nblb}$,
+and $\check{y}^{\nbub}$ are dual nonbasic and therefore have the value
+zero.
+(They are associated with primal bound constraints which are not tight.)
+We can rewrite the dual constraints as
+\begin{equation*}
+\begin{aligned}
+yB = c^B \\
+y\underline{N} - \check{y}^{\nblb}I = c^{\nblb} \\
+y\overline{N} + \hat{y}^{\nbub}I = c^{\nbub}
+\end{aligned}
+\end{equation*}
+We can then interpret the constraints
+$y\underline{N} - \check{y}^{\nblb}I = c^{\nblb}$
+as $y\underline{N} \geq c^{\nblb}$, with $\check{y}^{\nblb}$ acting as the
+surplus variables.
+Similarly, the constraints
+$y\overline{N} + \hat{y}^{\nbub}I = c^{\nbub}$ can be interpreted as
+$y\overline{N} \leq c^{\nbub}$, with $\hat{y}^{\nbub}$ acting as the slack
+variables.
+
+With this interpretation in hand, it's easy to determine the hyperplane that's
+activated by a pivot.
+When a dual variable $\check{y}^{\nblb}_k$ is driven out of the basis at 0
+($x_k$ enters rising from its lower bound),
+the constraint $y a_k \geq c_k$ becomes tight.
+When a dual variable $\hat{y}^{\nbub}_k$ is driven out of the basis at 0
+($x_k$ enters decreasing from its upper bound),
+the constraint $y a_k \leq c_k$ becomes tight.
+This interpretation is uniform for the original primal variables as well as
+the primal slack variables.
+
+For the most common case of a primal constraint $a_i x \leq b_i$, with
+associated slack $s_i$, $0 \leq s_i \leq \infty$, the dual constraint
+reduces to $y_i \geq 0$, and this is handled as an implicit bound by the
+dual simplex algorithm implemented in \dylp.
+(Range constraints complicate the interpretation, but not the mechanics, of
+the implementation.
+Again, see \cite{Haf98a} for a detailed explanation.)
+
+In the sections which follow, the alignment calculations are developed in
+terms of the most common constraint form ($a_k x \leq b_k$ in the case of
+the primal simplex, and $y a_k \geq c_k$ in the case of the dual simplex).
+Accommodating the different constraint types described in this section is
+simply a matter of correcting the sign of the calculation as needed to account
+for the direction of the constraint normal.
+
+
+\subsection{Alignment With Respect to the Objective Function}
+
+The primal objective used in \dylp is $\min cx$.
+We need to move in the direction $-c$ until
+we reach an extreme point of the polytope where the cone formed by the normals
+of the active constraints includes $-c$.
+
+If the goal is to travel in the direction $-c$, one approach would be to
+leave each vertex by moving along the edge which most nearly points in the
+direction $-c$.
+The edges traversed by the simplex algorithm are simply the intersections of
+active hyperplanes.
+If we're trying to construct an edge with which we can leave a degenerate
+vertex, we could choose to activate a hyperplane $a_k x = b_k$ such that
+$-c$ most nearly lies in the hyperplane, on the
+theory that its intersection with other active hyperplanes at the vertex is
+more likely to produce an edge with the desired orientation.
+This is the `Aligned' strategy, because we want the hyperplanes most closely
+aligned with the normal of the objective.
+
+Going to the other extreme, at the optimal vertex it must be true that the
+active
+hyperplanes block further motion in the direction $-c$, and $-c$ must lie
+within the cone of normals of the active hyperplanes.
+One can make the argument that a good choice of hyperplane would the one that
+most nearly blocks motion in the direction $-c$, as it's likely to be active
+at the optimal vertex.
+This is called the `Perpendicular' strategy, because we want the hyperplanes
+which are most nearly perpendicular to the normal of the objective.
+
+For constraints $a_k x \leq b_k$ the normal points out of the feasible region.
+Let the alignment of the normal $a_k$ with $-c$ be calculated as
+$\displaystyle \frac{a_i \cdot c}{\norm{a_i}\norm{c}}$.
+Then for the Perpendicular strategy, we want to select the hyperplane
+$a_i x = b_i$
+such that $\displaystyle i = \arg \max_k \frac{a_k \cdot c}{\norm{a_k}}$ over
+all constraints $a_k x \leq b_k$ in the degenerate set.
+
+For the Aligned strategy, the criteria is a bit more subtle.
+If $a_k \cdot -c = 0$, $-c$ lies in the hyperplane $a_k x = b_k$.
+Selecting the hyperplane $i$ such that
+$\displaystyle i = \arg \min_k \abs{\frac{a_k \cdot c}{\norm{a_k}}}$
+is not quite sufficient.
+Where possible, \dylp attempts to choose hyperplanes which are tilted in the
+direction of the objective, so as to bound the problem.
+The preferred hyperplane is $a_i x = b_i$ such that
+$\displaystyle i = \arg 
+  \min_{\{k \mid a_k \cdot c \geq 0\}} \frac{a_k \cdot c}{\norm{a_k}}$
+over the constraints in the degenerate set.
+If $a_k \cdot c < 0$ for all $k$, the preferred hyperplane is chosen as
+$\displaystyle i = \arg \max_k \frac{a_k \cdot c}{\norm{a_k}}$.
+
+The dual objective used in \dylp is $\min yb$, but we must be careful here to
+to include the effect of the bounds on the primal variables.
+The objective is properly stated as
+$\min \begin{bmatrix} y & \check{y} & \hat{y} \end{bmatrix}
+\trans{\begin{bmatrix} b & -l & u \end{bmatrix}}$,
+and we will need to include the
+coefficients of $\check{y}$ and $\hat{y}$ in the constraint normals.
+(In the primal we could ignore this effect, because the objective coefficients
+associated with the slack variables are uniformly zero.)
+
+For dual constraints $y a_k \geq c_k$, the normal
+$\begin{bmatrix} a_k & -e_k & 0 \end{bmatrix}$ will point into the
+feasible region
+and \dylp calculates the alignment of 
+$\begin{bmatrix} -b & l & -u \end{bmatrix}$ with the hyperplane as
+$\displaystyle \frac{b \cdot a_k + l_k}
+  {(\norm{a_k}+1)\norm{\begin{bmatrix} b & -l & u \end{bmatrix}}}$, so that a
+positive result identifies a constraint which blocks motion in
+the direction of the objective.
+For a constraint $y a_k \leq c_k$, the calculation is
+$\displaystyle \frac{(-b) \cdot a_k - u_k}
+  {(\norm{a_k}+1)\norm{\begin{bmatrix} b & -l & u \end{bmatrix}}}$.
+Selection of a specific leaving variable $\check{y}^{\nblb}_k$ or
+$\hat{y}^{\nbub}_k$ is done using the same criteria outlined for the
+Perpendicular and Aligned cases in the primal problem.
+
+\subsection{Alignment With Respect to the Direction of Motion}
+
+The selection of an entering variable specifies the desired direction of
+motion for the pivot.
+At a degenerate vertex, we cannot move in the desired direction because the
+set of active hyperplanes does not contain this edge.
+Intuitively, activating a hyperplane which is closely aligned with the desired
+direction of motion might increase the chance of being able to move in that
+direction.
+
+For the primal simplex, the direction of motion
+derived in \secref{sec:PSEPricing}
+is $\eta_j = \trans{\begin{bmatrix} -B^{\,-1}a_j & -e_j \end{bmatrix}}$.
+The normal of a constraint $a_k x \leq b_k$ points out of the feasible region.
+The alignment of $\eta_j$ and the normal $a_k$ is calculated
+as $\displaystyle \frac{a_k \cdot \eta_j}{\norm{a_k}\norm{\eta_j}}$, so that
+a positive value identifies a hyperplane which blocks motion in the
+direction $\eta_j$.
+
+It's important to note that normal $a_k$ in this calculation is that of the
+inequality --- the coefficient associated with the slack $s_k$
+is \textit{not} included.
+This means that $a_k \cdot \eta_j \equiv -\overline{a}_{kj}$.
+For a bound constraint, the relation is obvious by inspection.
+If, for example, the constraint is $x_k \leq u_k$, the normal is $e_k$, and
+$e_k \cdot -\overline{a}_j = -\overline{a}_{kj}$.
+For an architectural constraint, it's necessary to look at the calculation
+in a way that separates the contributions of the architectural and slack
+variables, and basic and nonbasic variables.
+We are interested in the structure of the product
+$\begin{bmatrix} B & N \end{bmatrix}
+ \begin{bmatrix} -B^{\,-1}N \\ I \end{bmatrix}$
+for loose constraints which will be activated by pivoting the associated slack
+variable out of the basis.
+Breaking up the matrices as detailed in \secref{sec:Notation}, we have
+\begin{align*}
+\begin{bmatrix} B^l & I & N^l & 0 \end{bmatrix}
+\begin{bmatrix} -B^{\,-1}N \\ I \end{bmatrix} & = 
+\begin{bmatrix} B^l & I & N^l & 0 \end{bmatrix}
+\begin{bmatrix}
+ -\begin{bmatrix} (B^t)^{-1} & 0 \\ -B^l(B^t)^{-1} & I \end{bmatrix}
+ \begin{bmatrix} N^t \\ N^l \end{bmatrix} \\
+ \begin{bmatrix} I & 0 \\ 0 & I \end{bmatrix}
+\end{bmatrix} \\
+& = 
+\begin{bmatrix} B^l & I & N^l & 0 \end{bmatrix}
+\begin{bmatrix}
+  -(B^t)^{-1} N^t & -(B^t)^{-1} \\
+  B^l(B^t)^{-1}N^t - N^l & B^l(B^t)^{-1} \\
+  I & 0 \\
+  0 & I
+\end{bmatrix} \\
+& =
+\begin{bmatrix}
+-B^l(B^t)^{-1} N^t + B^l(B^t)^{-1} N^t - N^l + N^l &
+-B^l(B^t)^{-1} + B^l(B^t)^{-1}
+\end{bmatrix}
+\end{align*}
+Removing the contribution due to the basic slack variables, we have
+$\begin{bmatrix} -B^l(B^t)^{-1} N^t + N^l &  -B^l(B^t)^{-1} \end{bmatrix}$.
+Because the leaving variable for the pivot is a slack, the pivot element
+$\overline{a}_{kj}$ will be drawn from the component
+$\begin{bmatrix} B^l(B^t)^{-1}N^t - N^l & B^l(B^t)^{-1} \end{bmatrix}$ in
+$-B^{-1}N$, and the equivalence is verified.
+
+To finish the alignment calculation for the purposes of selecting a leaving
+variable, all that is needed is to perform the normalisation by
+$\norm{a_k}\norm{\eta_j}$, and since $\norm{\eta_j}$ is constant during the
+selection of the leaving variable, we need only divide by $\norm{a_k}$ for
+comparison purposes.
+The selection of a leaving variable using the Aligned strategy is as outlined
+in the previous section.
+
+Given that $a_k \cdot \eta_j \equiv -\overline{a}_{kj}$, it's worth taking
+a moment to consider a common tie-breaking rule for selecting the leaving
+variable --- pick the variable with the largest $\abs{\overline{a}_{kj}}$,
+to maintain numerical stability.
+In fact, this amounts to selecting a hyperplane to activate using an
+unnormalised variation of the Perpendicular strategy.
+The obvious corollary is that using the Aligned strategy presents a potential
+danger to numerical stability by deliberately choosing small pivots.
+
+For the dual simplex, the direction of motion $\zeta_i$ is more complicated.
+Fortunately, we need only consider the portion of $\zeta_i$ in the space of
+the dual variables $y$.
+As derived in \secref{sec:DSEPricing},
+this is simply row $\beta_i$ of $B^{\,-1}$.
+For the dual constraints $y a_k \geq c_k$, the normal points into the feasible
+region.
+To maintain the convention that the alignment calculation should produce a
+positive result if the constraint blocks motion, the alignment calculation
+used by \dylp is
+$\displaystyle -\frac{\zeta_i \cdot a_k}{\norm{\zeta_i}\norm{a_k}}$.
+Given that we're only interested in the portion of $\zeta_i \cdot a_k$
+contributed by the dual variables $y$,
+it's immediately apparent that the alignment
+calculation can be reduced to
+$\displaystyle -\frac{\overline{a}_{ik}}{\norm{a_k}}$ for purposes of selecting
+the leaving dual variable.
+The final selection of a leaving dual variable using the Aligned or
+Perpendicular strategy proceeds as outlined in the previous section.
+

@@ -1,0 +1,11 @@
+--- glpk/src/glplpx01.c.orig	2008-09-05 19:44:36.000000000 +0200
++++ glpk/src/glplpx01.c	2008-09-05 19:42:45.000000000 +0200
+@@ -381,7 +381,7 @@
+       ret = glp_simplex(lp, &parm);
+       switch (ret)
+       {  case 0:           ret = LPX_E_OK;      break;
+-         case GLP_EBADB:
++         case GLP_EBADB:   ret = LPX_E_BADB;    break;
+          case GLP_ESING:
+          case GLP_ECOND:
+          case GLP_EBOUND:  ret = LPX_E_FAULT;   break;

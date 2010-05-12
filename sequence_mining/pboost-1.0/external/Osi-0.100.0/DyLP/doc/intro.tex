@@ -1,0 +1,102 @@
+\section{Introduction}
+\label{sec:Intro}
+
+\dylp is a linear programming (LP) code designed to be used as the
+underlying LP code in a branch-and-cut integer linear programming (IP) code.
+It emphasises convenience of use by the client, particularly with
+respect to fixing variables and adding and deleting constraints and
+variables.
+The target user population is IP algorithm developers; as such, \dylp
+emphasises controllability and convenience over efficiency and is capable of
+producing copious amounts of output for use in debugging.
+
+\dylp implements a dynamic simplex algorithm
+along the lines set out by Padberg in \cite[\S6.6]{Pad95}.
+The core idea is that, at any given time, many of the constraints of a LP
+problem are loose, and many nonbasic variables are unlikely to ever be
+considered for pivoting because their reduced costs are very unfavourable.
+A rough outline of the algorithm, neglecting unboundedness,
+infeasibility, and implementation issues, is as follows.
+
+From the problem supplied by the client, \dylp chooses an initial subset of
+constraints and variables to become the active system.
+This system is solved to optimality with primal simplex.
+\dylp then enters a minor loop where it deactivates variables whose
+reduced costs are worse than a threshold, 
+activates variables whose reduced costs are favourable,
+and reoptimises the system with primal simplex.
+This minor loop is repeated until there are no more variables suitable for
+entry.
+Next, \dylp deactivates any loose constraints, activates
+any constraints which are violated at the current basic solution,
+and reoptimises with dual simplex.
+On regaining feasibility, it returns to primal simplex and the
+deactivate/activate variable loop.
+When there are no variables with favourable reduced costs
+among the inactive variables and no violated constraints
+among the inactive constraints, the solution is optimal.
+
+The primal simplex algorithm used by \dylp is a two-phase algorithm.
+Phase I uses a dynamically modified objective to attain a primal feasible
+solution.
+Both phase I and phase II use a projected steepest edge (PSE) pricing
+algorithm outlined by Forrest \& Goldfarb \cite[algorithm `dynamic']{For92}.
+There are two antidegeneracy methods.
+The first, referred to as `anti-degeneracy lite', attempts to resolve ties
+among degenerate pivots by choosing the pivot in such a way as to make tight
+a hyperplane which has a desirable alignment.
+The second, applied when the first takes too long to resolve the degeneracy,
+is a perturbation algorithm which
+builds on a method described by Ryan \& Osborne \cite{Rya88}.
+
+The dual simplex algorithm provides only a second phase with
+dual steepest edge (DSE) pricing \cite[algorithm `steepest 1']{For92},
+standard or generalised pivoting,
+and an implementation of anti-degeneracy lite in the dual space.
+In the context of \dylp, it is the subordinate simplex, used for
+reoptimisation after adding constraints and as the initial simplex when the
+problem is dual feasible but not primal feasible.
+
+The active and inactive constraint systems are maintained with the \consys
+subroutine library \cite{Haf98b}.
+Basis factoring and pivoting are handled using the basis maintenance package
+from \glpk \cite{GLPK,Mak01}.
+
+\dylp is written in C and provides a native C interface.
+It can be used as a standalone simplex LP code with only a minimal shell
+required to generate the constraint system.
+
+In the context of a branch-and-cut code, \dylp expects that the dominant
+mode of use will be successive calls to
+reoptimise a constraint system that is incrementally modified between calls.
+On request, it will maintain its internal state (constraint system,
+basis inverse, and support data structures) between calls to support
+efficient hot starts for reoptimisation.
+\dylp provides interface routines to support two queries commonly required in
+a branch-and-cut context, pricing a new variable and pricing a dual pivot.
+Because \dylp maintains this internal state, it does not provide a native
+capability to interleave optimisation and reoptimisation of distinct
+constraint systems.
+
+\dylp can be used with \coin \cite{COIN} software through
+the C++ \coderef{}{OsiDylp} OSI interface class.
+An OSI interface object maintains a copy of the constraint system as
+well as providing an interface to the underlying solver.
+Multiple \pgmid{OsiDylp} objects with distinct constraint systems can exist
+simultaneously and calls to optimise and reoptimise the systems can be
+interleaved.
+There is some loss of efficiency as the state of the underlying solver is
+changed, but the necessary bookkeeping is handled by the \pgmid{OsiDylp}
+objects.
+
+The next section specifies the notation used for the
+primal and dual problems in the remainder of the report.
+Sections \ref{sec:UpdatingFormulas} through \ref{sec:Startup}
+describe individual components of the implementation.
+Sections \ref{sec:DynamicSimplex} through \ref{sec:ConstraintManagement}
+describe the simplex algorithms and the variable and constraint management
+algorithms used in \dylp.
+%Section \ref{sec:Performance} gives performance data for \dylp on the
+%\netlib and \miplib problem suites.
+Sections \ref{sec:DylpInterface} through \ref{sec:DylpDebugging} describe
+the interface and parameters provided by \dylp.

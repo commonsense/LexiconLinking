@@ -1,0 +1,292 @@
+\section{Pricing Algorithms}
+\label{sec:PricingAlgorithms}
+
+\subsection{Projected Steepest Edge Pricing}
+\label{sec:PSEPricing}
+
+The primal simplex algorithm in \dylp uses projected steepest edge (PSE)
+pricing;
+the algorithm used is described as dynamic projected steepest edge
+(`dynamic') in Forrest and Goldfarb \cite{For92}.
+
+To understand the operation of projected steepest edge (PSE) pricing, it
+will be helpful to start with the definition of a direction of motion.
+The values of the basic and nonbasic variables can be expressed as
+\begin{equation*}
+\begin{bmatrix} x^B \\ x^N \end{bmatrix} =
+  \begin{bmatrix} b \\ l/u \end{bmatrix} -
+  \begin{bmatrix} B^{\,-1}A^N \\ -I \end{bmatrix} \Delta
+\end{equation*}
+where $l/u$ is intended to indicate use of the lower or upper bound as
+appropriate for the particular nonbasic variable.
+When a given nonbasic variable $x_j$ is moved by an amount $\Delta_j$, the
+values of $x$ will change as
+\begin{equation*}
+  -\begin{bmatrix} B^{\,-1}a_j \\ -e_j \end{bmatrix} \Delta_j =
+  -\begin{bmatrix} \overline{a}_j \\ -e_j \end{bmatrix} \Delta_j =
+  \eta_j\Delta_j
+\end{equation*}
+The vector $\eta_j$ is the direction of motion as $x_j$ is changed;
+alternatively, it is the edge of the polyhedron which is traversed as $x_j$ is
+changed.
+Let $\gamma_j = \norm{\eta_j}$ be the norm of $\eta_j$.
+
+For pricing, it can be immediately seen that
+$c\eta_j = c_j - c^B \overline{a}_j$ is the reduced cost $\overline{c}_j$.
+Dantzig pricing chooses an entering variable $x_j$ such
+that $\overline{c}_j$ has appropriate sign and the largest magnitude over all
+reduced costs, but it can be misled by differences in scaling from
+one column to the next.
+Steepest edge (SE) pricing scales $\overline{c}_j$ by $\gamma_j$, choosing
+an entering variable $x_j$ with $\overline{c}_j$ of appropriate sign
+and the largest $\displaystyle \abs{\frac{c \eta_j}{\norm{\eta_j}}}$,
+effectively
+calculating the change in objective value over a unit vector in the direction
+of motion.
+This gives a uniform pricing comparison, using the slope of the edge.
+
+Projected steepest edge (PSE) pricing uses `projected' column
+norms which are calculated using a vector $\tilde{\eta}_j$ which contains only
+the components of $\eta_j$ included in a reference frame.
+Initially, this reference frame contains only the nonbasic variables, so that
+$\tilde{\gamma}_j = 1$ for all $x_j \in x^N$.
+In order to avoid calculating $\tilde{\gamma}_j$ from scratch each time a
+column must be priced, the norms are iteratively updated.
+
+To derive the update formul\ae{} for $\tilde{\gamma}_j$, it is useful to start
+with the update formul\ae{} for the full vector $\eta_j$.
+As mentioned in \secref{sec:DualUpdates},
+for $x_i$ leaving basis position $k$ and
+$x_j$ entering, $B(B')^{-1} = I + a_i(\beta')_k - a_j(\beta')_k$.
+Taking this one step further, 
+$(B')^{-1} = B^{\,-1} + \overline{a}_i(\beta')_k - \overline{a}_j(\beta')_k$.
+Then for an arbitrary column $a_p$,
+\begin{align}
+(B')^{-1}a_p & = B^{\,-1}a_p + \overline{a}_i(\beta')_k a_p -
+	\overline{a}_j(\beta')_k a_p \notag \\
+\overline{a}'_p & = \overline{a}_p +
+	e_k ( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} ) -
+	\overline{a}_j ( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )
+	\label{Eqn:abarupdate}
+\end{align}
+(recalling that $(\beta')_k = \beta_k/\overline{a}_{kj}$).
+
+To see that (\ref{Eqn:abarupdate}) amounts to
+$\eta'_p = \eta_p - \eta_j( \dfrac{\overline{a}_{kp}}{\overline{a}_{kj}} )$,
+it's helpful to expand the vectors:
+\begin{equation*}
+\overline{a}'_p =
+  \begin{bmatrix} \overline{a}_{1p} \\ \vdots \\
+		  \overline{a}_{kp} \\ \vdots \\
+		  \overline{a}_{mp} \end{bmatrix} +
+  \begin{bmatrix} 0 \\ \vdots \\
+		  1 \\ \vdots \\
+		  0 \end{bmatrix}\frac{\overline{a}_{kp}}{\overline{a}_{kj}} -
+  \begin{bmatrix} \overline{a}_{1j} \\ \vdots \\
+		  \overline{a}_{kj} \\ \vdots \\
+		  \overline{a}_{mj} \end{bmatrix}
+		  \frac{\overline{a}_{kp}}{\overline{a}_{kj}} .
+\end{equation*}
+With a little thought, it can be seen that the middle term represents one
+half of the
+permutation which moves $x_j$ into the basic partition of $\eta'_j$.
+(The other half moves $x_i$ into the nonbasic partition).
+When updating $\eta_i$, the update formula can be collapsed to
+$\eta'_i = - \eta_j/\overline{a}_{kj}$, since $\overline{a}_{ki} = 1$.
+Summarising, the update formul\ae{} for the edge directions $\eta_j$ are
+\begin{equation}
+\begin{split}
+\eta'_p & = \eta_p - \eta_j( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} ),
+\qquad p \neq i \\
+\eta'_i & = - \eta_j/\overline{a}_{kj}. \label{Eqn:etaupdate}
+\end{split}
+\end{equation}
+
+In fact, the code actually stores and updates $\gamma_j^{\,2}$.
+With (\ref{Eqn:etaupdate}) in hand, derivation of the update formul\ae{}
+are straightforward:
+\begin{align}
+\begin{split}
+(\gamma^{\,\prime}_p)^2 & = \eta'_p \cdot \eta'_p \\
+  & = (\eta_p - \eta_j( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )) \cdot
+      (\eta_p - \eta_j( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )) \\
+  & = \eta_p \cdot \eta_p -
+      2( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )\eta_j \cdot \eta_p +
+      ( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )^2 \eta_j \cdot \eta_j \\
+  & = \gamma_p^{\,2} -
+      2( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )
+      \begin{bmatrix} \overline{a}^T_j & e^T_j \end{bmatrix}
+      \begin{bmatrix} \overline{a}_p \\ e_p \end{bmatrix} +
+      ( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )^2 \gamma_j^{\,2} \\
+  & = \gamma_p^{\,2} -
+      2( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )
+      (\overline{a}^T_j B^{\,-1}) a_p +
+      ( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )^2 \gamma_j^{\,2}
+      \label{Eqn:gammapupdate}
+\end{split} \\[.5ex]
+\begin{split}
+(\gamma^{\,\prime}_i)^2 & = \eta'_i \cdot \eta'_i \\
+  & = \eta_j/\overline{a}_{kj} \cdot \eta_j/\overline{a}_{kj} \\
+  & = \gamma_j^{\,2}/\overline{a}^2_{kj}  \label{Eqn:gammaiupdate}
+\end{split}
+\end{align}
+
+Equations (\ref{Eqn:etaupdate}) can be used directly to update the
+$\tilde{\eta}_j$.
+To adapt (\ref{Eqn:gammapupdate}) and (\ref{Eqn:gammaiupdate}) for the
+$\tilde{\gamma}_j$,
+a little algebra should serve to see that it's sufficient to substitute
+$\tilde{a}_j$ in (\ref{Eqn:gammapupdate}), as well as using
+$\tilde{\gamma}_p$ and $\tilde{\gamma}_j$.
+
+It is straightforward to observe that when equations (\ref{Eqn:etaupdate})
+are premultiplied by $c$, they can be used to update the reduced costs as
+\begin{align*}
+\begin{split}
+\overline{c}'_p & = \overline{c}_p -
+	\overline{c}_j( \frac{\overline{a}_{kp}}{\overline{a}_{kj}} )
+\qquad p \neq i \\
+\overline{c}'_i & = - \overline{c}_j/\overline{a}_{kj}.
+\end{split}
+\end{align*}
+
+\subsection{Dual Steepest Edge Pricing}
+\label{sec:DSEPricing}
+
+The dual simplex in \dylp uses dual steepest edge (DSE) pricing; the algorithm
+used is described as dual algorithm 1 (`steepest 1') in
+Forrest and Goldfarb \cite{For92}.
+
+The values $\overline{b} = B^{-1}b$ are the reduced costs of the nonbasic dual
+variables.
+Analogous to Dantzig pricing in the primal case, one can choose a entering
+dual variable $y_i$ such that $\overline{b}_i$ has appropriate sign and the
+largest magnitude over all reduced costs, but there is the same problem with
+scaling.
+The version of dual steepest edge (DSE) pricing implemented in \dylp
+scales $\overline{b}_i$ by $\rho_i = \norm{\beta_i}$,
+choosing
+a leaving variable $x_i$ with $\overline{b}_i$ of appropriate sign
+and the largest $\displaystyle \abs{\frac{\beta_i b}{\norm{\beta_i}}}$,
+effectively
+calculating the change in the dual objective value over a unit vector in
+the dual direction of motion in the space of the dual variables.
+This gives a uniform pricing comparison, using the slope of the dual edge.
+
+In the next few paragraphs, an alternative motivation of the algorithm is
+presented which (perhaps) clarifies the relationship between dual
+algorithm 1 and dual algorithm 2 in that paper%
+\footnote{Those who have
+read \cite{For92} are warned that the author's notation is in no way compatible
+with that of Forrest and Goldfarb.}.
+
+To see how DSE operates within the context of the revised primal simplex
+tableau, we can refer back to equations \eqnref{Eqn:DualBasicVars} and
+\eqnref{Eqn:DualObj} from \secref{sec:Notation}, repeated here:
+\begin{equation}
+\begin{split}
+\begin{bmatrix} \sigma^\mathcal{B} & y^\mathcal{B} \end{bmatrix} & =
+    (-c)\mathcal{B}^{\,-1} -
+    \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+    \mathcal{N}\mathcal{B}^{\,-1} \\
+& = \begin{bmatrix} c^N - c^B (B^t)^{-1} N^t & -c^B (B^t)^{-1} \end{bmatrix} -
+    \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+    \begin{bmatrix}
+      -(B^t)^{-1} N^t & -(B^t)^{-1} \\
+      B^l(B^t)^{-1} N^t - N^l & B^l(B^t)^{-1}
+    \end{bmatrix}
+\end{split} \tag{\ref{Eqn:DualBasicVars}}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+z & = \begin{bmatrix} \sigma^\mathcal{B} & y^\mathcal{B} \end{bmatrix}
+      \begin{bmatrix} 0 & b^t \end{bmatrix}^T +
+      \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+      \begin{bmatrix} 0 & b^l \end{bmatrix}^T \\
+  & = (-c)\mathcal{B}^{\,-1} b^\mathcal{B} +
+      \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+      (b^\mathcal{N} - \mathcal{N}\mathcal{B}^{\,-1} b^\mathcal{B}) \\
+  & = -c^B (B^t)^{-1} b^t +
+      \begin{bmatrix} \sigma^\mathcal{N} & y^\mathcal{N} \end{bmatrix}
+      \begin{bmatrix} (B^t)^{-1} b^t \\ b^l - B^l(B^t)^{-1} b^t \end{bmatrix}
+\end{split} \tag{\ref{Eqn:DualObj}}
+\end{equation}
+Recall that the values of the dual basic variables are the reduced costs of
+the primal problem, and the reduced costs of the dual variables are the values
+of the primal basic variables (\cf equations \eqnref{Eqn:PrimalBasicVars} and
+\eqnref{Eqn:PrimalObj}).
+
+By analogy to the primal pivoting rules, for dual simplex
+we want to choose a nonbasic dual variable which will move us in a direction
+of steepest descent.
+If the nonbasic dual is to increase, its reduced cost must be less than 0 in
+order to see a reduction in the dual objective.
+This corresponds to the case of a primal variable which will be increased and
+driven out of the basis at its lower bound with a positive primal reduced
+cost.
+If the nonbasic dual is to decrease, its reduced cost must be greater than
+0 in order to see a reduction in the dual objective.
+This corresponds to the case of a primal variable which will be decreased and
+driven out of the basis at its upper bound with a negative primal reduced cost.
+
+The actual direction of motion in the full dual space ($y$ and $\sigma$) would
+be specified by a row of
+\begin{equation*}
+\mathcal{NB}^{\,-1} = \begin{bmatrix}
+			-(B^t)^{-1} N^t & -(B^t)^{-1} \\
+			B^l(B^t)^{-1} N^t - N^l & B^l(B^t)^{-1}
+		      \end{bmatrix},
+\end{equation*}
+a vector which is not readily available in the revised
+primal simplex.
+(Moreover, for the typical problem in which the number of variables greatly
+exceeds the number of constraints, the norm of this vector is expensive to
+calculate when initialising the pricing algorithm, and the updates are
+expensive.
+This is the algorithm which Forrest and Goldfarb describe
+as dual algorithm 2.)
+
+However, one can make an argument that there's no need to consider the
+component of the direction of motion in the subspace of the dual surplus
+variables.
+(More positively, we can take the view that we're only interested in motion
+in the polyhedron $\{y \in R^m \mid yA \geq -c, y \geq 0\}$ defined by the
+dual variables.)
+Changes in the surplus variables cannot affect the objective directly, as
+they account for the 0's in the augmented and partitioned $b$ vector.
+Algebraically, we can see that the dual basic portion
+of $b$, $\begin{bmatrix}0 & b^t \end{bmatrix}^T$, guarantees that there will
+never be any contribution from the columns
+of $\mathcal{NB}^{\,-1}$ involving $N$.
+The component of motion in the space of the dual variables $y$ is then simply
+the rows $\beta_l$ of $B^{\,-1}$, which are easily available from the primal
+tableau.
+(The analogous action in the primal problem --- ignore the component of
+$\eta_j$ in the subspace of the primal slack variables --- offers no
+computational advantage.)
+
+Given a rationale for taking the rows $\beta_l$ of $B^{\,-1}$ as the
+edges of interest, what remains is to work out the details.
+Since we're aiming for a steepest edge algorithm, we'll be interested in
+iteratively updating $\norm{\beta_l}^2 = \beta_l \cdot \beta_l$, the square
+of the norm of a row $\beta_l$.
+Given the update formul\ae{} for $\beta_l$ derived in
+\secref{sec:BasisUpdates},
+the development of the update formul\ae{} for $\rho_l = \norm{\beta_l}^2$ is
+straightforward algebra.
+Let $x_i$ be the leaving variable and $x_j$ be the entering variable, and
+assume $x_i$ occupies row $k$ of the basis $B$ before the update.
+We have
+\begin{align}
+\begin{alignedat}{2}
+\rho'_l & = \rho_l -
+	    2\frac{\overline{a}_{lj}}{\overline{a}_{kj}}\beta_l\cdot\beta_k +
+	    (\frac{\overline{a}_{lj}}{\overline{a}_{kj}})^2\rho_k &
+	    \qquad\qquad l \neq k \\
+\rho'_k & = (\frac{1}{\overline{a}_{kj}})^2\rho_k
+\end{alignedat}
+\end{align}
+Since the update will be performed for all rows in the basis, it's worth
+calculating the vector $\tau = B^{\,-1}\beta^T_k$ to obtain all the inner
+products $\beta_l \cdot \beta_k$ in one calculation.

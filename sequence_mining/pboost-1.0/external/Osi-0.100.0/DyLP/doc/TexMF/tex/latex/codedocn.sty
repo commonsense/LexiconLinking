@@ -1,0 +1,304 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{codedocn}%
+  [1996/04/10 v1.0 Lou Hafer Code documentation macros.]
+
+\RequirePackage{ifthen}
+
+% These macros are intended to make it easier to do documentation of code.
+
+% By default, the sans serif typeface is used for for code --- this has much
+% to do with my dislike of Courier. But it's changeable with this option.
+% Beware! The AvantGarde sans serif face is just too big to coexist with
+% the usual fonts. Rather than pick a size here (\small was about right),
+% I used the scaling capability of DeclareFontShape to scale it by .9.
+% See the private copy of T1pag.fd.
+
+\DeclareOption{rm}%
+{\renewcommand{\codefamily}{\rmfamily}%
+ \renewcommand{\mathcodefam}[1]{\mathrm{#1}}}
+\DeclareOption{sf}%
+{\renewcommand{\codefamily}{\sffamily}%
+ \renewcommand{\mathcodefam}[1]{\mathsf{#1}}}
+\DeclareOption{tt}%
+{\renewcommand{\codefamily}{\ttfamily}%
+ \renewcommand{\mathcodefam}[1]{\mathtt{#1}}}
+
+\newcommand{\codefamily}{\sffamily}
+\newcommand{\mathcodefam}[1]{\mathsf{#1}}
+
+\ProcessOptions
+
+% Fix up the verbatim package so it's using a compatible font.
+
+\renewcommand{\verbatim@font}{\normalfont\codefamily}
+
+% Boxes and lengthes we can use.
+
+\newsavebox{\code@docnbx}
+\newlength{\code@docnlen}
+\newsavebox{\code@docnbxA}
+\newlength{\code@docnlenA}
+
+% A pair of macros to handle the common instance of program identifier names
+% with `_' included as a letter. The trick is to get TeX to execute the catcode
+% change before it scans the identifier and sees the `_'. The \relax is
+% critical, otherwise TeX starts to expand \@pgmid to see if it'll add to the
+% 12 that ends the catcode change.
+
+\newcommand{\pgmid}{\begingroup\catcode`\_=12\relax\@pgmid}
+\newcommand{\@pgmid}[1]{\ifmmode\mathcodefam{#1}\else\codefamily #1\fi\endgroup}
+
+% Similar fooling around to get a more complicated reference that can include
+% (optionally) a file name and/or a subroutine name.
+
+\newcommand{\coderef}{\begingroup\catcode`\_=12\relax\@coderef}
+\newcommand{\@coderef}[2]%
+ {\codefamily%
+  \ifthenelse{\equal{#1}{}}%
+    {#2}%
+    {\ifthenelse{\equal{#2}{}}{#1}{#1:#2}}%
+  \endgroup}
+
+
+% A list environment for subroutine documentation.
+% The subrdoc environment doesn't do anything in particular; it's just a
+% precaution.
+% The subrhdr command takes two parameters, the type and name of the
+% subroutine, and the parameter list. The parameter list can be broken
+% into multiple lines with \\, and they will be indented by the length of
+% the type and name. `()' around the parameters are supplied automatically.
+% To use,
+% \begin{subrdoc}
+%   \item
+%   \subrhdr{int *foo}{int parm1, int parm2,\\char *somestring}
+% \end{subrdoc}
+%
+
+\newenvironment{subrdoc}%
+  {\begin{list}{}{\setlength{\itemsep}{\baselineskip}}}
+  {\end{list}}
+
+\newcommand{\subrhdr}{\begingroup\catcode`\_=12\relax\@subrhdr}
+\newcommand{\@subrhdr}[2]
+  {\settowidth{\code@docnlenA}{\codefamily\bfseries #1 ( }%
+   \sbox{\code@docnbxA}%
+   {\hspace*{\code@docnlenA}%
+    \parbox[t]{\linewidth-\code@docnlenA-\rightmargin-5.0pt}%
+    {\codefamily\bfseries\raggedright\makebox[0pt][r]{#1 ( }#2 )\\[1ex]}}%
+   \setlength{\code@docnlenA}{-\labelwidth-\labelsep}%
+   \hspace{\code@docnlenA}\usebox{\code@docnbxA}\endgroup\par}
+
+% A list environment for field names, parameters, etc. The header for an
+% item is a single name. All we're doing here is recreating a description
+% environment while making it easy to typeset the header. Usage is as for
+% subrdoc --- \item\varhdr{...}. NOTE that the \@varhdr macro has >> 2 <<
+% parameters. The net effect is that it gobbles the next non-space character.
+% This gets around TeX's inclination to insert an inter-word space in the
+% normal sort of usage, where there's a space or line break after the
+% obvious parameter, i.e., \item\varhdr{hdr_name} Now the text ...
+
+\newenvironment{codedoc}[1][\hspace{5em}]%
+  {\begin{list}{}{\settowidth{\labelwidth}{#1}%
+		  \setlength{\labelsep}{1em}%
+		  \setlength{\leftmargin}{\labelwidth+\labelsep}}}
+  {\end{list}}
+\newcommand{\varhdr}{\begingroup\catcode`\_=12\relax\@varhdr}
+\newcommand{\@varhdr}[2]
+  {\hspace{-\leftmargin}\codefamily\bfseries%
+   \settowidth{\code@docnlenA}{#1}%
+   \ifthenelse{\lengthtest{\code@docnlenA > \labelwidth}}%
+     {\mbox{#1}}%
+     {\makebox[\labelwidth][r]{#1}}%
+   \endgroup\hspace{\labelsep}#2}
+
+% And the big version, Varhdr. This one is intended for substructures. The
+% first parameter will become the item header (typically the name of the
+% substructure). The 2nd parameter should contain all the fields. The lot
+% will be typeset much as for subrhdr, indented by the size of the first
+% parameter.
+
+\newcommand{\Varhdr}{\begingroup\catcode`\_=12\relax\@Varhdr}
+\newcommand{\@Varhdr}[2]
+  {\settowidth{\code@docnlenA}{\codefamily\bfseries #1: }%
+   \sbox{\code@docnbxA}%
+   {\ifthenelse{\lengthtest{\code@docnlenA > \labelwidth}}%
+      {\hspace*{\code@docnlenA}%
+       \parbox[t]{\linewidth-\code@docnlenA-\rightmargin-5.0pt}%
+         {\codefamily\bfseries\raggedright\makebox[0pt][r]{#1: }#2\\[.25ex]}}%
+      {\setlength{\code@docnlenA}{\labelwidth+\labelsep}%
+       \hspace*{\code@docnlenA}%
+       \parbox[t]{\linewidth-\labelwidth-\labelsep-\rightmargin-5.0pt}%
+         {\codefamily\bfseries\raggedright%
+	  \makebox[0pt][r]{#1:\hspace{\labelsep}}#2\\[.25ex]}}}%
+   \setlength{\code@docnlenA}{-\labelwidth-\labelsep}%
+   \hspace{\code@docnlenA}\usebox{\code@docnbxA}\endgroup\par}
+
+
+% Macros intended to make it a bit easier to set BNF syntax descriptions.
+
+\newcommand{\keywd@font}{\ttfamily\upshape}
+\newcommand{\term@font}{\codefamily\upshape}
+\newcommand{\nterm@font}{\codefamily\itshape}
+
+\newcommand{\kw}[1]{{\keywd@font#1}}
+\newcommand{\te}[1]{{\term@font#1}}
+\newcommand{\nt}[1]{{\nterm@font#1}}
+\newcommand{\bnflist}[2][]{#2\te{-LIST}\textsuperscript{\kw{#1}}}
+
+% An environment for typesetting bnf descriptions. The lhs command is used
+% only inside this environment, as an alias for \item.
+
+\newenvironment{bnf}[1][\quad]%
+  {\begin{list}{}{\renewcommand{\makelabel}[1]{##1 \hfill}%
+		  \settowidth{\labelwidth}{#1}%
+		  \setlength{\leftmargin}{\labelwidth+\labelsep}%
+		  \term@font}}
+  {\end{list}}
+
+\newcommand{\lhs}[1]{\item[\nt{#1} \bnfeq ]}
+
+% Various special symbols. bnfnull writes the word null in a distinct script.
+% bnfeq does up `::=' with decent alignment.
+
+\newcommand{\bnfnull}{{\fontfamily{pzc}\fontshape{it}\selectfont null}}
+\newcommand{\bnfeq}{::\raise-1.1pt\hbox{=} }
+
+% And now an environment and various commands aimed at psuedocode. Basically
+% we set up a tabbing environment, in the codefamily font. Comments revert
+% to textrm. The surrounding list allows us to shrink the margins.
+
+\newcommand{\pseudo@indent}{\{ }
+\newenvironment{pseudocode}[1][\parindent]
+  {\begin{list}{}{\setlength{\leftmargin}{#1}\setlength{\topsep}{0pt}}%
+   \codefamily\bfseries%
+   \renewcommand{\textit}[1]{{\rmfamily\itshape\mdseries ##1}}%
+   \renewcommand{\textrm}[1]{{\rmfamily\upshape\mdseries ##1}}%
+   \item%
+   \begin{tabbing}%
+   \pseudo@indent\=\pseudo@indent\=\pseudo@indent\=\pseudo@indent\=%
+   \pseudo@indent\=\pseudo@indent\= \kill}
+  {\end{tabbing}
+   \end{list}}
+
+\newcommand{\pseudocomment}[1]%
+{\sbox{\code@docnbx}{/* \textrm{#1} */}%
+ \settowidth{\code@docnlen}{\usebox{\code@docnbx}}%
+ \ifthenelse{\lengthtest{\code@docnlen > \linewidth}}%
+   {/*\+\\
+    \parbox{\linewidth}{\raggedright\textrm{#1}}\-\\
+    {}*/\\}%
+   {\\[-.25\baselineskip]/* \textrm{#1} */\\[.25\baselineskip]}%
+}
+
+% An environment and commands suitable for assembly language.
+% The following are generic sizes. We have to
+% delay setting the comment length until execution so that we get the current
+% value for \linewidth.
+
+% A macro for sizing the environment. The assumption is that some point size
+% has been established.
+
+\newlength{\assem@comindent}
+\newlength{\assem@datasze}
+\newlength{\assem@addrsze}
+\newlength{\assem@blkcomsze}
+\newlength{\assem@commentsze}
+\newlength{\assem@operandsze}
+\newlength{\assem@opcodesze}
+\newlength{\assem@lblsze}
+\newboolean{assem@listing}
+
+\newcommand{\assem@comchar}{;}
+
+\newcommand{\setassemsize}[1][\normalsize]%
+{#1%
+ \setlength{\assem@lblsze}{10ex}%
+ \setlength{\assem@opcodesze}{6ex}%
+ \setlength{\assem@operandsze}{20ex}%
+ \setlength{\assem@addrsze}{6ex}%
+ \setlength{\assem@datasze}{3ex}%
+}
+
+\setassemsize
+
+\newenvironment{assembler}[1][\assem@comchar]
+  {\begin{flushleft}\codefamily%
+   \setboolean{assem@listing}{false}%
+   \setlength{\assem@commentsze}%
+     {\linewidth-\assem@lblsze-\assem@opcodesze-\assem@operandsze-8\tabcolsep}%
+   \setlength{\assem@blkcomsze}{\linewidth-2\tabcolsep}%
+   \begin{tabular}%
+     {p{\assem@lblsze}p{\assem@opcodesze}%
+      p{\assem@operandsze}>{#1 }p{\assem@commentsze}}}
+  {\end{tabular}\end{flushleft}}
+
+\newenvironment{assemblerlisting}
+  {\begin{flushleft}\codefamily%
+   \setboolean{assem@listing}{true}%
+   \setlength{\assem@comindent}%
+     {\assem@addrsze+\assem@datasze+4\tabcolsep}
+   \setlength{\assem@commentsze}%
+     {\linewidth-\assem@lblsze-\assem@opcodesze-\assem@operandsze-12\tabcolsep}%
+   \addtolength{\assem@commentsze}{-\assem@addrsze-\assem@datasze}%
+   \setlength{\assem@blkcomsze}{\linewidth-\assem@comindent}
+   \begin{tabular}%
+     {p{\assem@addrsze}p{\assem@datasze}%
+      p{\assem@lblsze}p{\assem@opcodesze}%
+      p{\assem@operandsze}>{\assem@comchar\ }p{\assem@commentsze}}}
+  {\end{tabular}\end{flushleft}}
+
+% A block comment macro. The user-level call is \assemblkcom{the comment}.
+% It will automatically break up the comment into lines, adding the `;' at the
+% front. The strategy is to suck the entire comment into a box, and see if
+% it'll fit on one line. If it doesn't, we initialise a box to `; ', then call
+% break@comment, which will try to add words to the line until the next word
+% won't fit. Then it dumps the box, reinitialises it, and continues. The string
+% end@comment is tacked onto the end, and when we see that we're done.  Turns
+% out \multicolumn has problems inside an ifthenelse, for some reason, so I've
+% fallen back on \makebox, lying about the width. `&' also seems to have
+% trouble, but only in the \break@comment macro. To all appearances, when I
+% try to leave two blank columns in listing format with `& &', the
+% \code@docnbx seems to be emptied (?). Faked it with hspace.
+
+\def\break@comment #1 #2 {%
+  \settowidth{\code@docnlen}{\usebox{\code@docnbx}}%
+  \settowidth{\code@docnlenA}{ #1}%
+  \addtolength{\code@docnlenA}{\code@docnlen}%
+  \ifthenelse{\lengthtest{\code@docnlenA > \assem@blkcomsze}}%
+  {\ifthenelse{\boolean{assem@listing}}%
+   {\makebox[\assem@addrsze][l]%
+     {\hspace{\assem@comindent}\usebox{\code@docnbx}} \\}%
+   {\makebox[\assem@lblsze][l]{\usebox{\code@docnbx}} \\}%
+   \sbox{\code@docnbx}{\assem@comchar{}}%
+   \def\bk@nxt{\break@comment #1 }}%
+  {\sbox{\code@docnbx}{\usebox{\code@docnbx} #1}%
+   \ifthenelse{\equal{#2}{end@comment}}%
+   {\ifthenelse{\boolean{assem@listing}}%
+   {\makebox[\assem@addrsze][l]%
+     {\hspace{\assem@comindent}\usebox{\code@docnbx}}}%
+   {\makebox[\assem@lblsze][l]{\usebox{\code@docnbx}}}%
+    \def\bk@nxt ##1 {}}%
+   {\let\bk@nxt\break@comment}}
+   \bk@nxt #2 %
+}
+
+\newcommand{\assemblkcom}[1]%
+{\sbox{\code@docnbx}{\assem@comchar\ #1}%
+ \settowidth{\code@docnlen}{\usebox{\code@docnbx}}%
+ \ifthenelse{\lengthtest{\code@docnlen > \assem@blkcomsze}}%
+ {\sbox{\code@docnbx}{\assem@comchar{}}\break@comment #1 end@comment}%
+ {\ifthenelse{\boolean{assem@listing}}{& &}{}%
+   \makebox[\assem@lblsze][l]{\assem@comchar\ #1}}%
+}
+
+% This will format the label on a line by itself if it's longer than the
+% label column.
+
+\newcommand{\assemlbl}[1]%
+{\sbox{\code@docnbx}{#1:}%
+ \settowidth{\code@docnlen}{\usebox{\code@docnbx}}%
+ \ifthenelse{\lengthtest{\code@docnlen > \assem@lblsze}}%
+ {\makebox[\assem@lblsze][l]{#1:}\\%
+  \ifthenelse{\boolean{assem@listing}}{& &}{}}%
+ {#1:}%
+}

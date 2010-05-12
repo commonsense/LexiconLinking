@@ -1,0 +1,114 @@
+# Partial makefile for LaTeX documents. Use with build script to scan log
+# file and detect the need for additional LaTeX runs.
+
+SRCDIR = @abs_srcdir@
+ISLDIR = @abs_srcdir@/Figures
+
+PICSRCDIR = @abs_srcdir@
+BIBDIR = $(TEXMFHOME)/bibtex
+
+ISLUPICS = Figures/conmgmtcalls.epsu \
+	Figures/dualpivcalls.epsu \
+	Figures/dualcalls.epsu \
+	Figures/dual2flow.epsu \
+	Figures/dualerrorflow.epsu \
+	Figures/dylpnormalflow.epsu \
+	Figures/factorcalls.epsu \
+	Figures/primal1flow.epsu \
+	Figures/primal2flow.epsu \
+	Figures/primalcalls.epsu \
+	Figures/primalerrorflow.epsu \
+	Figures/primalpivcalls.epsu \
+	Figures/startupflow.epsu \
+	Figures/varmgmtcalls.epsu
+
+# dylp.tex is the root file.
+
+DYLPSRC = $(SRCDIR)/accuracy.tex \
+	$(SRCDIR)/antidegenlite.tex \
+	$(SRCDIR)/conmgmt.tex \
+	$(SRCDIR)/debug.tex \
+	$(SRCDIR)/dual.tex \
+	$(SRCDIR)/dylp.tex \
+	$(SRCDIR)/dynamic.tex \
+	$(SRCDIR)/interface.tex \
+	$(SRCDIR)/intro.tex \
+	$(SRCDIR)/lpbasis.tex \
+	$(SRCDIR)/notation.tex \
+	$(SRCDIR)/perturbed.tex \
+	$(SRCDIR)/pricing.tex \
+	$(SRCDIR)/primal.tex \
+	$(SRCDIR)/scaling.tex \
+	$(SRCDIR)/startup.tex \
+	$(SRCDIR)/statistics.tex \
+	$(SRCDIR)/updateformulae.tex \
+	$(SRCDIR)/varmgmt.tex
+
+DYLPFIGSRC = $(SRCDIR)/dylpfigs.tex
+
+BIBSRC = $(BIBDIR)/bib/dylp.bib
+
+$(ISLUPICS:.epsu=.eps): Figures/%.eps: $(PICSRCDIR)/Figures/%.epsu \
+	$(ISLDIR)/epsupatch.sed  
+	@echo "munching $< to produce $@"
+	@sed -n -f $(ISLDIR)/epsupatch.sed < $< > $@
+
+$(ISLXPICS:.epsx=.eps): Figures/%.eps: $(PICSRCDIR)/Figures/%.epsx \
+	$(ISLDIR)/epsupatch.sed $(ISLDIR)/epsxpatch.sed $(ISLDIR)/epsxpatch.ps
+	@echo "munching $< to produce $@"
+	@sed -n -f $(ISLDIR)/epsupatch.sed < $< | \
+	 sed -f $(ISLDIR)/epsxpatch.sed > $@
+
+%.pdf:	%.eps
+	@echo "munching $< to produce $@"
+	@epstopdf --outfile=$@ $<
+
+dylp:	dylp.dvi
+dylpfigs: dylpfigs.dvi
+
+%.dvi:	$(SRCDIR)/%.tex
+	@echo "TeXing $< to produce $@ ..."
+	@latex $<
+	@echo "done."
+
+# Intended to be used with make -q to determine if *.bbl needs to be rebuilt
+# due to changes in bib files.
+
+dylp.bbl:  $(BIBSRC) $(BIBDIR)/bst/louplain.bst
+	bibtex $(basename $@)
+
+# The .bbl file (and BIBSRC) are deliberately excluded here, so that we'll
+# only indicate a need to run LaTeX based on direct source files. The build
+# script will force LaTeX if it runs BibTeX. dylpabsdir.tex is generated during
+# configure.
+
+dylp.dvi: $(DYLPSRC) dylpabsdir.tex \
+	  $(TEXMFHOME)/tex/latex/loustandard.sty \
+	  $(TEXMFHOME)/tex/latex/loubookman.sty \
+	  $(TEXMFHOME)/tex/latex/loumath.sty \
+	  $(TEXMFHOME)/tex/latex/codedocn.sty \
+	  $(ISLUPICS:.epsu=.eps)
+
+# The easy way out.
+
+dylp.pdf: dylp.dvi \
+	  $(ISLUPICS:.epsu=.pdf)
+	@echo "TeXing $(<:.dvi=.tex) to produce $@ ..."
+	@pdflatex $(<:.dvi=.tex)
+	@echo "done."
+
+dylpfigs.dvi: dylpfigs.tex \
+	  $(TEXMFHOME)/tex/latex/loustandard.sty \
+	  $(TEXMFHOME)/tex/latex/loubookman.sty \
+	  $(ISLUPICS:.epsu=.eps)
+
+clean:
+	@rm -f $(ISLUPICS:.epsu=.eps)
+	@rm -f $(ISLXPICS:.epsx=.eps)
+	@rm -f $(ISLUPICS:.epsu=.pdf)
+	@rm -f $(ISLXPICS:.epsx=.pdf)
+	@rm -f $(patsubst $(SRCDIR)/%.tex,%.aux,$(DYLPSRC) $(DYLPFIGSRC))
+	@rm -f $(patsubst $(SRCDIR)/%.tex,%.dvi,$(DYLPSRC) $(DYLPFIGSRC))
+	@rm -f $(patsubst $(SRCDIR)/%.tex,%.log,$(DYLPSRC) $(DYLPFIGSRC))
+	@rm -f $(patsubst %.tex,%.bbl,dylp.tex dylpfigs.tex)
+	@rm -f $(patsubst %.tex,%.blg,dylp.tex dylpfigs.tex)

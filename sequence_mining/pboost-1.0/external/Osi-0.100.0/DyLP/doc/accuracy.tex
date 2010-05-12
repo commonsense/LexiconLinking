@@ -1,0 +1,88 @@
+ 
+\section{Accuracy Checks and Maintenance}
+\label{AccuracyChecks}
+
+Primal and dual accuracy checks, primal and dual feasibility checks, and
+factoring of the basis can be requested through the routine \pgmid{dy_accchk};
+each action can be requested separately.
+
+\dylp refactors the basis and performs accuracy checks at regular intervals,
+based on a count of pivots which actually change the basis.
+By default, primal and dual accuracy checks are performed at twice this
+frequency.
+During phase II of the primal and dual simplex algorithms, the appropriate
+feasibility check is performed following each accuracy check.
+\pgmid{dy_duenna} tracks the pivot count and requests checks and factoring
+at the scheduled intervals.
+
+\pgmid{dy_accchk} uses \pgmid{dy_factor} to factor the basis and recalculate
+the primal and dual variables.
+When the basis has been factored and has passed the accuracy checks, the
+routine \pgmid{groombasis} checks that the status of the basic variables
+matches their values and makes any necessary adjustments.
+
+Failure of an accuracy check will cause the basis to be refactored.
+Failure of an accuracy check immediately after refactoring will cause the
+current pivot selection tolerances to be tightened by one increment before
+another attempt is made.
+\pgmid{dy_accchk} will repeat this cycle until the accuracy checks are
+satisfied or there's no more room to tighten the pivot selection parameters.
+On the other hand, each time that an accuracy check is passed without
+refactoring the basis, the current pivot selection tolerances are loosened by
+one increment, to a floor given by the minimum pivot selection tolerance.
+
+The minimum pivot selection tolerance is reset to the loosest possible setting
+at the start of each simplex phase.
+If \pgmid{groombasis} detects and corrects major status errors (indicating
+that an unacceptable amount of inaccuracy accumulated since the basis was
+last factored), it will raise the minimum pivot selection tolerance.
+Similarly, if the primal phase~I objective is found to be incorrect, or
+primal or dual feasibility is lost when attempting to verify an optimal
+solution, the current and minimum pivot selection tolerances will be raised
+before returning to simplex pivots.
+Raising the minimum pivot selection tolerance provides long-term control
+(for the duration of a simplex phase) over reduction in the current pivot
+selection tolerance.
+
+The primal accuracy check is $B x^B = b - N x^N$.
+Comparisons are made against the scaled tolerance
+$\norm[1]{b}(\pgmid{dy_tols.pchk})$.
+To pass the primal accuracy check, it must be that
+\begin{equation*}
+\norm[1]{(b - N x^N) - B x^B} \leq \norm[1]{b}(\pgmid{dy\_tols.pchk})
+\end{equation*}
+
+The dual accuracy check is $y B = c^B$.
+Comparisons are made against the scaled tolerance
+$\norm[1]{c}(\pgmid{dy_tols.dchk})$.
+To pass the dual accuracy check, it must be that
+\begin{equation*}
+\norm[1]{c^B - y B} \leq \norm[1]{c}(\pgmid{dy\_tols.dchk})
+\end{equation*}
+
+The primal feasibility check is $l \leq x \leq u$.
+For each variable, it must be true that
+$x_j \geq l_j - (\pgmid{dy_tols.pfeas}) (1 + \abs{l_j})$ and
+$x_j \leq u_j + (\pgmid{dy_tols.pfeas}) (1 + \abs{u_j})$.
+In the implementation, only the basic variables are actually tested; nonbasic
+variables are assumed to be within bound as an invariant property of the
+simplex algorithm.
+$\pgmid{dy_tols.pfeas}$ is scaled from \pgmid{dy_tols.zero} as
+\begin{equation*}
+\pgmid{dy\_tols.pfeas} =
+  \min ( 1, \log \left( \frac{\norm[1]{x_B}}{\sqrt{m}} \right))
+  (\pgmid{dy\_tols.zero})(\pgmid{dy_tols.pfeas_scale}).
+\end{equation*}
+
+The dual feasibility check is $\overline{c} = c^N - y N$ of appropriate
+sign.
+For each variable, it must be true that
+$\overline{c}_j \leq \pgmid{dy_tols.dfeas}$ for $x_j$ nonbasic
+at $u_j$ and $\overline{c}_j \geq -\pgmid{dy_tols.dfeas}$ for $x_j$ nonbasic
+at $l_j$.
+$\pgmid{dy_tols.dfeas}$ is scaled from \pgmid{dy_tols.cost} as
+\begin{equation*}
+\pgmid{dy\_tols.dfeas} =
+  \min ( 1, \log \left( \frac{\norm[1]{y_k}}{\sqrt{m}} \right))
+  (\pgmid{dy\_tols.cost})(\pgmid{dy_tols.dfeas_scale}).
+\end{equation*}

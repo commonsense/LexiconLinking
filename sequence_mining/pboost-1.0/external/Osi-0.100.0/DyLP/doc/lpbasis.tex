@@ -1,0 +1,181 @@
+\section{The LP Basis}
+\label{sec:LPBasis}
+
+\dylp requires three capabilities from a basis maintenance module:
+\begin{itemize}
+\item	Factoring of the basis to create the basis inverse.
+
+\item	Update of the basis inverse for a pivot.
+
+\item	Premultiplication (`ftran') of a column vector by the basis inverse,
+	and postmultiplication (`btran') of a row vector by the basis inverse.
+\end{itemize}
+\dylp uses the basis maintenance module from \glpk to provide these services.
+Knowledge of the structure and operation of the \glpk subroutines is
+confined to a set of interface subroutines in the file \coderef{dy_basis.c}{}.
+The majority of these are straightforward interface functions whose sole
+purpose is to hide the \glpk structures and to mediate between \glpk and the
+remainder of the code.
+
+\subsection{The \glpk Basis Module Interface}
+\label{sec:GLPKBasisModule}
+
+Very roughly, the \glpk basis maintenance module has a two-layer structure.
+The top layer (\coderef{glpinv.c}{}) provides the basic services for a
+generic basis inverse.
+In turn, the top layer calls on a second layer (\coderef{glpluf.c}{}) to
+provide a specific
+implementation of the basis inverse data structures and algorithms.
+Dynamic Markowitz pivoting with partial threshold pivot selection is
+used to factor a basis.
+
+The routine \pgmid{dy_initbasis} is used to initialise the basis module.
+The capacity of the basis, algorithm options, and numeric tolerances are
+set at initialisation (\vid \secref{sec:GLPKBasisInit}).
+The basis is deleted by the routine \pgmid{dy_freebasis}.
+Changing the basis capacity is implemented in \dylp by saving options and
+tolerances for the existing basis, deleting the existing basis,
+and creating a new basis of the appropriate size.
+The capacity is checked each time the basis is factored; changes are
+invisible to clients.
+The \glpk basis module will resize its own internal data structures whenever
+it determines that this is required.
+
+In the main, \dylp uses the basis module in a standard way for
+factoring and pivoting.
+There are some departures from \glpk defaults:
+\begin{itemize}
+  \item
+  The initial size of the sparse vector working area is tripled.
+
+  \item
+  The limit on element growth (\pgmid{luf.max_gro}) is reduced from
+  $10^{12}$ to $10^6$.
+
+  \item
+  The minimum value for elements on the diagonal of the factorisation
+  (\pgmid{luf_basis.upd_tol} is reduced from $10^{-6}$ to $10^{-10}$.
+
+  \item
+  Instead of a fixed default of $.1$, the pivot stability tolerance is
+  dynamically adjusted in a range between $.01$ and $.95$ based on \dylp's
+  assessment of the numerical stability of the current basis.
+  The number of pivot candidates examined when factoring the basis is
+  also adjusted in the range $4$ to $10$.
+  More candidates are considered as the stability requirement is raised
+  in the hope of finding a numerically stable candidate without compromising
+  sparsity.
+\end{itemize}
+
+The routine \pgmid{dy_setpivparms} is provided to adjust the pivot stability
+tolerance and pivot candidate limit.
+Adjustment of the pivot selection parameters is done according to a
+fixed schedule of tolerance and limit values
+kept in the static data structure \coderef{dy_basis.c}{pivtols}.
+The client specifies an integer delta which is used to select a pair of
+values from the schedule.
+
+Pre- and post-multiplication of vectors by the basis inverse are provided by
+the routines \pgmid{dy_ftran} and \pgmid{dy_btran}, respectively.
+
+\subsection{Factoring}
+\label{sec:BasisFactoring}
+
+For factoring the basis, the routine \pgmid{dy_factor} provides
+significant error recovery functions
+on top of the basic abilities of \glpk.
+The call structure is shown in Figure 
+\ref{fig:FactorCallGraph}.
+\begin{figure}[htb]
+\centering
+\includegraphics{\figures/factorcalls}
+\caption{Call Graph for \protect\pgmid{dy\_factor}} \label{fig:FactorCallGraph}
+\end{figure}
+
+A singular basis can occur because of a simplex pivot attempt or as the result
+of a change in the coefficients of the basis because the client has fixed
+variables and then requested a warm or hot start.
+The factoring routine \pgmid{glp_inv_decomp} detects a singular basis and
+reports the unpivoted rows and columns, but does not attempt to fix the basis.
+\pgmid{adjust_basis} uses the information reported by \pgmid{glp_inv_decomp} to
+attempt to patch the basis,
+substituting columns associated with slack variables for the set of columns
+identified as singular.
+This sequence is repeated until the basis is successfully factored.
+
+In the larger context of \dylp, patching the basis is the least of
+the work.
+\pgmid{dy_factor} will call \pgmid{adjust_therest} to adjust the \dylp data
+structures as necessary to reflect the exchange of variables between the
+basic and nonbasic partitions.
+Depending on the phase, this can include updating the structures which
+maintain the basis, recalculating the primal (\pgmid{dy_calcprimals})
+and dual (\pgmid{dy_calcduals}) variables,
+recalculating the reduced costs (\pgmid{dy_calccbar}),
+resetting the DSE or PSE norms (\pgmid{dy_dseinit} and \pgmid{dy_pseinit},
+respectively), clearing the list of variables marked
+ineligible for pivoting (\pgmid{dy_clrpivrej}), and backing out a perturbed
+subproblem (\pgmid{dy_degenout}). 
+
+\pgmid{glp_inv_decomp} will abort an attempt to factor the basis if the current
+pivot selection parameters give rise to numerical instability (detected as
+excessive growth in the magnitude of the coefficients of the factored basis).
+\pgmid{dy_factor} will make repeated tries to factor the basis, tightening
+the pivot selection parameters before each attempt.
+It will admit failure only if the numerical instability remains after the
+pivot selection tolerances have been tightened as much as possible, so that
+each pivot chosen is the maximum coefficient remaining in the unpivoted
+portion of the basis.
+
+\subsection{Pivoting}
+\label{sec:BasisPivoting}
+
+Pivoting is performed by \pgmid{dy_pivot}, which confirms the numerical
+stability of the pivot element and calls \pgmid{glp_inv_update} to pivot
+the basis.
+
+To be judged numerically stable, a prospective pivot coefficient
+$\overline{a}_{ij}$ must exceed the product
+of the \glpk stability multiplier (\pgmid{luf.piv_tol}), the \dylp pivot
+selection multiplier (\pgmid{dy_tols.pivot}),
+and the maximum element in the transformed column
+$\overline{a}_j = B^{\,-1}a_j$ (primal
+simplex) or row $\overline{a}_i = \beta_i N$ (dual simplex).
+Standard defaults in \dylp are
+$5 \times 10^{-2}$ for the \glpk stability multiplier
+and $1 \times 10^{-5}$ for the \dylp pivot selection multiplier, so that
+the pivot coefficient is required to satisfy
+$\abs{\overline{a}_{ij}} > (5 \times 10^{-7})(\max_k \abs{\overline{a}_{kj}})$
+(primal simplex) or
+$\abs{\overline{a}_{ij}} > (5 \times 10^{-7})(\max_k \abs{\overline{a}_{ik}})$
+(dual simplex).
+The routine \pgmid{dy_chkpiv} is supplied to perform this test, and is used
+as a qualification test by the routines which select the leaving primal
+variable in primal simplex and the entering primal variable in dual simplex.
+The check performed in \pgmid{dy_pivot} should not fail, but is retained as a
+precaution.
+
+If $\overline{a}_{ij}$ is rejected as numerically unstable, the pivot attempt
+is aborted.
+In primal simplex, the entering variable $x_j$ will be placed on the rejected
+pivot list.
+For dual simplex, the leaving variable $x_i$ is placed on the rejected pivot
+list.
+Recovery from pivoting problems and the handling of the rejected pivot list are
+discussed in \secref{sec:ErrorRecovery}.
+
+A pivot can also fail
+if it results in a singular basis or if the basis representation runs
+out of space.
+The implementation of \glpk requires that the basis be reloaded and factored
+to recover from these errors; this is orchestrated by \pgmid{dy_duenna}
+and discussed in \secref{sec:ErrorRecovery}.
+
+Note that \pgmid{glp_inv_update} expects to be supplied with $L^{-1}a_j$ as a
+hidden parameter.
+\glpk provides the capability to control whether a call to \pgmid{glp_inv_ftran}
+sets this hidden parameter.
+This capability is exposed to clients as the second parameter
+to \pgmid{dy_ftran}.
+
+

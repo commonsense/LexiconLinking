@@ -1,0 +1,68 @@
+%Filename: Upbk.fd
+%Created by: tex 12657bookman
+%Created by hand
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{Upbk.fd}
+   [1995/08/11 Created by Lou Hafer so I can get at the Adobe characters]
+
+\DeclareFontFamily{U}{pbk}{}
+
+\DeclareFontShape{U}{pbk}{db}{n}{
+   <-> pbkd8r
+}{}
+
+\DeclareFontShape{U}{pbk}{db}{sc}{
+   <-> pbkdc8r
+}{}
+
+\DeclareFontShape{U}{pbk}{db}{sl}{
+   <-> pbkdo8r
+}{}
+
+\DeclareFontShape{U}{pbk}{db}{it}{
+   <-> pbkdi8r
+}{}
+
+\DeclareFontShape{U}{pbk}{db}{ui}{
+   <-> pbkdu8r
+}{}
+
+\DeclareFontShape{U}{pbk}{l}{n}{
+   <-> pbkl8r
+}{}
+
+\DeclareFontShape{U}{pbk}{l}{sc}{
+   <-> pbklc8r
+}{}
+
+\DeclareFontShape{U}{pbk}{l}{sl}{
+   <-> pbklo8r
+}{}
+
+\DeclareFontShape{U}{pbk}{l}{it}{
+   <-> pbkli8r
+}{}
+
+\DeclareFontShape{U}{pbk}{l}{ui}{
+   <-> pbklu8r
+}{}
+
+\DeclareFontShape{U}{pbk}{b}{n}{<->ssub * pbk/db/n}{}
+\DeclareFontShape{U}{pbk}{bx}{n}{<->ssub * pbk/b/n}{}
+\DeclareFontShape{U}{pbk}{b}{sc}{<->ssub * pbk/db/sc}{}
+\DeclareFontShape{U}{pbk}{bx}{sc}{<->ssub * pbk/b/sc}{}
+\DeclareFontShape{U}{pbk}{b}{sl}{<->ssub * pbk/db/sl}{}
+\DeclareFontShape{U}{pbk}{bx}{sl}{<->ssub * pbk/b/sl}{}
+\DeclareFontShape{U}{pbk}{b}{it}{<->ssub * pbk/db/it}{}
+\DeclareFontShape{U}{pbk}{bx}{it}{<->ssub * pbk/b/it}{}
+\DeclareFontShape{U}{pbk}{b}{ui}{<->ssub * pbk/db/ui}{}
+\DeclareFontShape{U}{pbk}{bx}{ui}{<->ssub * pbk/b/ui}{}
+\DeclareFontShape{U}{pbk}{m}{n}{<->ssub * pbk/l/n}{}
+\DeclareFontShape{U}{pbk}{m}{sc}{<->ssub * pbk/l/sc}{}
+\DeclareFontShape{U}{pbk}{m}{sl}{<->ssub * pbk/l/sl}{}
+\DeclareFontShape{U}{pbk}{m}{it}{<->ssub * pbk/l/it}{}
+\DeclareFontShape{U}{pbk}{m}{ui}{<->ssub * pbk/l/ui}{}
+
+\endinput

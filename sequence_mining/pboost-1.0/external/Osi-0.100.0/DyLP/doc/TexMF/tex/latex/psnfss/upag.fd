@@ -1,0 +1,58 @@
+%Filename: Upag.fd
+%Created by: tex 12466avantgar
+%Created using fontinst v1.335
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+% Modified to shrink the font by .9 to match the x height with Bookman.
+
+\ProvidesFile{Upag.fd}
+   [1995/08/11 Fontinst v1.335 font definitions for U/pag.]
+
+\DeclareFontFamily{U}{pag}{}
+
+\DeclareFontShape{U}{pag}{db}{n}{
+   <-> s * [.9] pagd8t
+}{}
+
+\DeclareFontShape{U}{pag}{db}{sc}{
+   <-> s * [.9] pagdc8t
+}{}
+
+\DeclareFontShape{U}{pag}{db}{sl}{
+   <-> s * [.9] pagdo8t
+}{}
+
+\DeclareFontShape{U}{pag}{m}{n}{
+   <-> s * [.9] pagk8t
+}{}
+
+\DeclareFontShape{U}{pag}{m}{sc}{
+   <-> s * [.9] pagkc8t
+}{}
+
+\DeclareFontShape{U}{pag}{m}{sl}{
+   <-> s * [.9] pagko8t
+}{}
+
+\DeclareFontShape{U}{pag}{b}{n}{<->ssub * pag/db/n}{}
+\DeclareFontShape{U}{pag}{bx}{n}{<->ssub * pag/b/n}{}
+\DeclareFontShape{U}{pag}{b}{sc}{<->ssub * pag/db/sc}{}
+\DeclareFontShape{U}{pag}{bx}{sc}{<->ssub * pag/b/sc}{}
+\DeclareFontShape{U}{pag}{b}{sl}{<->ssub * pag/db/sl}{}
+\DeclareFontShape{U}{pag}{bx}{sl}{<->ssub * pag/b/sl}{}
+\DeclareFontShape{U}{pag}{db}{it}{<->ssub * pag/db/sl}{}
+\DeclareFontShape{U}{pag}{b}{it}{<->ssub * pag/db/it}{}
+\DeclareFontShape{U}{pag}{bx}{it}{<->ssub * pag/b/it}{}
+\DeclareFontShape{U}{pag}{db}{ui}{<->sub * pag/db/it}{}
+\DeclareFontShape{U}{pag}{b}{ui}{<->ssub * pag/db/ui}{}
+\DeclareFontShape{U}{pag}{bx}{ui}{<->ssub * pag/b/ui}{}
+\DeclareFontShape{U}{pag}{l}{n}{<->ssub * pag/m/n}{}
+\DeclareFontShape{U}{pag}{l}{sc}{<->ssub * pag/m/sc}{}
+\DeclareFontShape{U}{pag}{l}{sl}{<->ssub * pag/m/sl}{}
+\DeclareFontShape{U}{pag}{m}{it}{<->ssub * pag/m/sl}{}
+\DeclareFontShape{U}{pag}{l}{it}{<->ssub * pag/m/it}{}
+\DeclareFontShape{U}{pag}{m}{ui}{<->sub * pag/m/it}{}
+\DeclareFontShape{U}{pag}{l}{ui}{<->ssub * pag/m/ui}{}
+
+\endinput

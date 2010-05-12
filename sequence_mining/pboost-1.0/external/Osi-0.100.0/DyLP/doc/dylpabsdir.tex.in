@@ -1,0 +1,7 @@
+
+% The sole purpose of this file is to provide a hook for configure to set the
+% absolute name of the documentation source directory. This is used when
+% pulling in PostScript source for figures. Otherwise, various dvi viewers may
+% not be able to find it.
+
+\newcommand{\mypath}{@abs_builddir@}

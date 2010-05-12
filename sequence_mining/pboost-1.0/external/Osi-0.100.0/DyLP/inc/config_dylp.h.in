@@ -1,0 +1,116 @@
+/* inc/config_dylp.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define to the C type whose size in bytes matches the size in bytes of the
+   the C++ bool type. */
+#undef BOOL
+
+/* Define to the debug sanity check level (0 is no test) */
+#undef COIN_DYLP_CHECKLEVEL
+
+/* Define to the debug verbosity level (0 is no output) */
+#undef COIN_DYLP_VERBOSITY
+
+/* Define to 1 if the CoinUtils package is used */
+#undef COIN_HAS_COINUTILS
+
+/* Define to 1 if the DyLP package is used */
+#undef COIN_HAS_DYLP
+
+/* Define to 1 if the Osi package is used */
+#undef COIN_HAS_OSI
+
+/* Directory containing the DyLP error message text file (dy_errmsgs.txt).
+   Should be set to /absolute/path/to/srcdir/DyLP/src/Dylp, using native path
+   syntax (i.e., drive letters and backslashes on Windows). */
+#undef DYLP_ERRMSGDIR
+
+/* Define this symbol if the quiet_nan function exists. This function should
+   return the bit pattern for IEEE quiet NaN. */
+#undef DYLP_HAS_QUIET_NAN
+
+/* Define to be the name of the C function used to check that an IEEE floating
+   point value is finite. */
+#undef DYLP_ISFINITE
+
+/* Define to be the name of the C function used to check that an IEEE floating
+   point value is NaN. */
+#undef DYLP_ISNAN
+
+/* Define this variable to disable dylp's informational printing features. */
+#undef DYLP_NDEBUG
+
+/* Define this variable to enable dylp's paranoid checks. */
+#undef DYLP_PARANOIA
+
+/* Define this variable to enable dylp's statistics collection features. */
+#undef DYLP_STATISTICS
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if float.h exists. */
+#undef HAVE_FLOAT_H
+
+/* Define to 1 if ieeefp.h exists. */
+#undef HAVE_IEEEFP_H
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if math.h exists. */
+#undef HAVE_MATH_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if sunmath.h exists. */
+#undef HAVE_SUNMATH_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Version number of package */
+#undef VERSION
+
+/* Define to 1 if your processor stores words with the most significant byte
+   first (like Motorola and SPARC, unlike Intel and VAX). */
+#undef WORDS_BIGENDIAN

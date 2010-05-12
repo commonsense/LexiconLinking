@@ -1,0 +1,419 @@
+
+\section{Primal Simplex}
+\label{sec:PrimalSimplex}
+
+The primal simplex implementation in \dylp is a two-phase algorithm.
+\dylp will choose primal simplex phase~II whenever the current basic
+solution is primal feasible but not dual feasible.
+It will choose primal simplex phase~I when the current basic solution
+is neither primal or dual feasible.
+The primary role of primal simplex in \dylp is to reoptimise following the
+addition of variables.
+Since primal phase~I requires neither primal or dual feasibility, it is the
+fallback simplex.
+
+The primal simplex implementation incorporates projected steepest edge (PSE)
+pricing (\secref{sec:PSEPricing}),
+standard (\secref{sec:PrimalStdSelectOutVar}) and
+generalised (\secref{sec:PrimalGenSelectOutVar}) pivoting, and
+perturbation-based (\secref{sec:PerturbedAntiDegeneracy}) and
+alignment-based (\secref{sec:AntiDegenLite}) antidegeneracy algorithms.
+
+Figure \ref{fig:PrimalCallGraph} shows the call structure of the primal simplex
+implementation.
+\begin{figure}[htb]
+\centering
+\includegraphics{\figures/primalcalls}
+\caption{Call Graph for Primal Simplex} \label{fig:PrimalCallGraph}
+\end{figure}
+
+\subsection{Primal Top Level}
+
+Primal simplex is executed when the dynamic simplex state machine enters one
+of the states \pgmid{dyPRIMAL1} or \pgmid{dyPRIMAL2}.
+If required, the PSE reference frame is initialised to the
+nonbasic variables and the projected column norms are initialised to one
+(\vid \secref{sec:PSEPricing}), and
+the primal simplex routine \pgmid{dy_primal} is called.
+
+\pgmid{dy_primal} controls the use of phase~I (\pgmid{primal1}) and
+phase~II (\pgmid{primal2}) of the primal simplex algorithm.
+The primary purpose of \pgmid{dy_primal} is to provide a loop which allows a
+limited number (currently hardwired to 10) of reversions
+to phase~I if primal feasibility is lost during phase II.
+Loss of primal feasibility is treated as a numeric accuracy problem; with each
+such reversion the minimum pivot selection tolerances are tightened by one
+step.
+
+To maintain primal feasibility when repairing a singular basis
+(\secref{sec:BasisFactoring})
+in primal phase~II, superbasic variables may be created.
+Superbasic variables will not normally be created during phase~I and the
+code assumes that it will not encounter them\footnote{%
+More strongly, superbasic variables are introduced only in primal phase~II for
+the purpose of maintaining feasibility during repair of a singular basis.
+They will appear outside of \pgmid{primal2} only if the problem is unbounded
+or if \pgmid{primal2} terminates with an error condition.}.
+Rarely, a sequence of errors during phase~II will cause \dylp to lose
+primal feasibility and revert to phase~I with superbasic variables still
+present in the nonbasic partition.
+The routine \pgmid{forcesuperbasic} is called to ensure that any superbasic
+variables are forced to bound in such a phase~II to phase~I transition.
+
+\subsection{Primal Phase I}
+\label{sec:PrimalPhaseI}
+
+The overall flow of phase I of the primal simplex is shown in Figure
+\ref{fig:PrimalPhaseIFlow}.
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{\includegraphics{\figures/primal1flow}}
+\caption{Primal Phase I Algorithm Flow} \label{fig:PrimalPhaseIFlow}
+\end{figure}
+The body of the routine is structured as two nested loops.
+The outer loop handles startup and termination, and the inner loop handles the
+majority of routine pivots.
+A pivot iteration in phase~I normally consists of three steps: the actual
+pivot and variable updates, routine maintenance checks, and revision of
+the objective.
+
+A dynamically modified artificial objective is used to guide
+pivoting to feasibility during phase~I\@.
+The (minimisation) coefficients assigned to variables are
+-1 for variables below their bound, 0 for variables within bounds, and +1 for
+variables above their bound.
+On entry to phase~I, \pgmid{dy_initp1obj} forms a working set containing
+all infeasible variables, constructs the corresponding objective, swaps out
+the original objective, and installs the phase~I objective.
+
+Once the phase~I objective has been constructed, the outer loop is entered and
+\pgmid{dy_primalin} is called to select the initial entering variable.
+Then the inner loop is entered and \pgmid{dy_primalpivot} is called to
+perform the pivot.
+\pgmid{dy_primalpivot} (\vid \secref{sec:PrimalPivoting}) will choose a
+leaving variable (\pgmid{primalout}), pivot the basis (\pgmid{dy_pivot}),
+update the primal and dual variables (\pgmid{primalupdate}),
+and update the PSE pricing information and reduced costs (\pgmid{pseupdate}).
+For a routine pivot, \pgmid{pseupdate} will also select an entering variable
+for the next pivot.
+\pgmid{dy_duenna} evaluates the outcome of the pivot, handles error detection
+and recovery where possible, and performs the routine maintenance activities
+of accuracy checks and refactoring of the basis.
+
+As the final step in a routine pivot, \pgmid{tweakp1obj} scans the
+working set and removes any newly feasible variables.
+The objective function is adjusted to reflect any changes and
+reduced costs and dual variables are adjusted or recalculated as required.
+If there are no problems, the pivoting loop iterates, using the leaving
+variable selected in \pgmid{pseupdate}.
+The loop continues until primal feasibility is reached, the problem
+is determined to be infeasible, or an exception or fatal error occurs.
+
+When the working set becomes empty, \pgmid{tweakp1obj}
+will give a preliminary indication of primal feasibility.
+If \pgmid{verifyp1obj} confirms that all variables are primal feasible,
+the pivoting loop will end.
+If accumulated numerical inaccuracy has caused previously feasible variables
+to become infeasible, the pivot selection parameters will be tightened, 
+\pgmid{dy_initp1obj} will be called to build a new working
+set and objective, and pivoting will resume.
+
+Changes to the objective coefficients may make it necessary
+to select a new entering variable.
+This situation arises when a variable gains feasibility but remains
+basic, as changing an entry of $c^B$ can potentially affect all
+reduced costs\footnote{%
+Less commonly, the problem arises because the newly feasible leaving variable
+of the just-completed pivot has been selected to reenter.
+The objective coefficient for this variable is incorrect when it is used
+by \pgmid{pseupdate}.}.
+The variable selected in \pgmid{pseupdate} may no longer be the best
+(or even a good) choice.
+The flow of control is redirected to the outer loop, where \pgmid{dy_primalin}
+will be called to select an entering variable.
+
+It can happen that no entering variable is selected by \pgmid{pseupdate}
+for use in the next iteration.
+Here, too, control flow is redirected to \pgmid{dy_primalin}.
+The single most common reason in primal simplex is
+a bound-to-bound `pivot' of a nonbasic variable --- since there is no
+basis change, \pgmid{pseupdate} is not called.
+
+Another common reason for failure to select an entering variable is that all
+candidates were previously flagged as unsuitable pivots.
+In this case, \pgmid{dy_primalin} will indicate a `punt' and
+\pgmid{dy_dealWithPunt} will be called to reevaluate the flagged variables.
+If it is able to make new candidates available, control returns to
+\pgmid{dy_primalin} for another attempt to find an entering variable.
+If all flagged variables remain unsuitable, control flow moves to the
+preoptimality actions with an indication that primal phase~I has punted.
+
+If the current pivot is aborted due to numerical problems
+(an unsuitable pivot coefficient being the most common of these),
+\pgmid{pseupdate} is not executed.
+Once \pgmid{dy_duenna} has taken the necessary corrective action, the flow
+of control moves to the outer loop and \pgmid{dy_primalin}.
+
+When \pgmid{dy_primalin} indicates optimality,
+\pgmid{dy_primalpivot} indicates optimality or unboundedness, or 
+\pgmid{tweakp1obj} indicates primal feasibility,
+the inner pivoting loop ends and
+\pgmid{verifyp1obj} is called to verify feasibility.
+If feasibility is confirmed, \pgmid{preoptimality} is called to
+refactor the basis, perform accuracy checks, and confirm primal and dual
+feasibility.
+If there are no surprises, primal phase I terminates with an indication of
+optimality (primal feasibility), unboundedness, or primal infeasibility.
+In any event, if \pgmid{preoptimality} reports that the
+solution is primal
+feasible, phase~I will end with an indication of optimality even if it was
+not expected from the pivot loop termination condition.
+
+If a primal feasible solution has been found, the original objective will
+be restored before returning from \pgmid{primal1}.
+The transition to phase~II entails calculating the objective, dual variables,
+and reduced costs for the original objective.
+If the problem is infeasible or unbounded, the phase~I objective is left
+in place and \dylp will use it as it attempts to activate variables or
+constraints to deal with the problem (\secref{sec:ErrorRecovery}).
+
+Loss of primal feasibility can occur when the basis is factored during the
+preoptimality checks.
+The pivot selection parameters are tightened and pivoting resumes.
+
+Loss of dual feasibility is considered only when it is accompanied
+by lack of primal feasibility (\ie, a false indication of infeasibility).
+Loss of dual feasibility can occur for two distinct reasons.
+In the less common case, loss of dual feasibility stems from loss of numeric
+accuracy.
+The pivot selection rules are tightened and pivoting resumes.
+
+The more common reason for apparent loss of dual feasibility at the termination
+of phase~I primal simplex is that it is ending with a punt, as described
+above.
+The variables flagged as unsuitable for pivoting are not dual feasible, and
+when the flags are removed to perform the preoptimality checks, dual
+feasibility is revealed as an illusion.
+No further action is possible within primal simplex; the reader is again
+referred to \secref{sec:ErrorRecovery}.
+
+When the number of false indications of optimality exceeds a hard-coded limit
+(currently 15), primal simplex terminates with a fatal error.
+Other errors also result in termination of the primal simplex algorithm, and
+ultimately in an error return from \dylp.
+
+\subsection{Primal Phase II}
+\label{sec:PrimalPhaseII}
+
+The overall flow of phase~II of the primal simplex is shown in Figure
+\ref{fig:PrimalPhaseIIFlow}.
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{\includegraphics{\figures/primal2flow}}
+\caption{Primal Phase II Algorithm Flow} \label{fig:PrimalPhaseIIFlow}
+\end{figure}
+The major differences from phase~I are that the problem is know to be feasible
+and the original objective function is used instead of an artificial
+objective function.
+This considerably simplifies the flow of \pgmid{primal2}.
+
+The inner pivoting loop has only two steps: the pivot itself
+(\pgmid{dy_primalpivot}) and the maintenance and error recovery functions
+(\pgmid{dy_duenna}).
+When \pgmid{dy_primalin} indicates optimality or
+\pgmid{dy_primalpivot} indicates optimality or unboundedness
+the inner loop ends and
+\pgmid{preoptimality} is called for confirmation.
+\pgmid{preoptimality} will refactor the basis, perform accuracy checks,
+recompute the primal and dual variables, and confirm primal and dual
+feasibility.
+If there are no surprises, primal phase~II will end with an indication of
+optimality or unboundedness.
+
+Loss of dual feasibility (including punts) is handled as described for primal
+phase~I.
+Loss of primal feasibility causes \pgmid{primal2} to return with an indication
+that it has lost primal feasibility, and \pgmid{dy_primal} will arrange a
+return to primal phase~I\@.
+
+\subsection{Pivoting}
+\label{sec:PrimalPivoting}
+
+\dylp offers two flavours of primal pivoting: A standard primal pivot
+algorithm in which a single primal variable is selected and pivoted into
+the basis, and an extended primal pivot algorithm which allows somewhat greater
+flexibility in the choice of leaving variable.
+By default, \dylp will use the extended algorithm.
+
+Figure~\ref{fig:PrimalPivotCallGraph} shows the call structure of the primal
+pivot algorithm.
+The routine \pgmid{primalout} implements standard primal pivoting;
+\pgmid{primmultiout} implements extended primal pivoting.
+
+\begin{figure}[htb]
+\centering
+\includegraphics{\figures/primalpivcalls}
+\caption{Call Graph for Primal Pivoting} \label{fig:PrimalPivotCallGraph}
+\end{figure}
+
+The first activity in \pgmid{dy_primalpivot} is the calculation of the
+coefficients of the pivot column, $\overline{a}_{j} = B^{\,-1} a_j$, by
+the routine \pgmid{dy_ftran}.
+With the entering primal variable and the ftran'd column in hand, one of
+\pgmid{primalout} or \pgmid{primmultiout} are called to select the leaving
+variable.
+
+If the entering and leaving variables are the same (\ie, a nonbasic variable is
+moving from one bound to the other), all that is required is to call
+\pgmid{primalupdate} to update the values of the primal variables.
+The basis, dual variables, reduced costs, and PSE pricing information are
+unchanged.
+
+If the entering and leaving variables are distinct, the pivot
+is performed in several steps.
+Prior to the pivot, the $i$\textsuperscript{th} row of the basis inverse,
+$\beta_i$, and the vector $\trans{\tilde{a}_j} B^{\,-1}$ are calculated for
+use during the update of the PSE pricing information.
+The basis is pivoted next; this involves calls to \pgmid{dy_ftran} and
+\pgmid{dy_pivot}, as outlined in \secref{sec:BasisPivoting}.
+If the basis change succeeds, the primal and dual variables are updated by
+\pgmid{primalupdate} using the iterative update formul\ae{} of
+\secref{sec:UpdatingFormulas}, and then the PSE pricing information
+and reduced
+costs are updated by \pgmid{pseupdate}, using the update formul\ae{} of
+\secref{sec:PSEPricing}.
+As a side effect, \pgmid{pseupdate} will select an entering variable for the
+next pivot.
+
+\subsection{Selection of the Entering Variable}
+\label{sec:PrimalStdSelectInVar}
+
+Selection of the entering variable $x_j$ for a primal pivot is made using
+the primal steepest edge criterion described in \secref{sec:PSEPricing}.
+As outlined above, the normal case is that the entering variable for the
+following pivot will
+be selected as \pgmid{pseupdate} updates the PSE pricing information
+for the current pivot.
+In various exceptional circumstances where this does not occur, the routine
+\pgmid{dy_primalin} is called to make the selection.
+
+\subsection{Standard Primal Pivot}
+\label{sec:PrimalStdSelectOutVar}
+
+Selection of the leaving variable $x_i$ is made using standard
+primal pivoting rules and a set of tie-breaking strategies.
+
+Abstractly, we need to check
+$x_k = \overline{b}_k - \overline{a}_{kj}\Delta_{kj}$ to find the maximum
+allowable $\Delta_{kj}$ such that
+$l_k \leq x_k \leq u_k \: \forall k \in B$ and $x_i = l_i$ or $x_i = u_i$ for
+some $i$.
+The index $i$ of the leaving variable will be
+\begin{displaymath}
+i = \arg \min_{k} \abs{\frac{\overline{b}_k}{a_{kj}}}
+\end{displaymath}
+for suitable $x_k \in B$.
+
+The primal pivoting rules are the standard set for revised simplex with bounded
+variables, and are summarised in Table \ref{Tbl:PrimalPivotRules}.
+\begin{table}[htb]
+\renewcommand{\arraystretch}{2.5}\setlength{\tabcolsep}{.75\tabcolsep}
+\begin{center}
+\begin{tabular}{*{3}{>{$}c<{$}}}
+
+\text{leaving } x_i & \text{entering } x_j &
+\text{pivot } \overline{a}_{ij} \\[.5\baselineskip]
+
+\nearrow \mathit{ub} & \mathit{lb} \nearrow & < 0 \\
+
+		     & \mathit{ub} \searrow & > 0 \\
+
+\searrow \mathit{lb} & \mathit{lb} \nearrow & > 0 \\
+
+		     & \mathit{ub} \searrow & < 0 \\
+\end{tabular}
+\end{center}
+\caption{Summary of Primal Simplex Pivoting Rules} \label{Tbl:PrimalPivotRules}
+\end{table}
+During phase~I, when a variable is infeasible below its lower bound and must
+increase to become feasible, \dylp sets the limiting $\Delta_j$ based on the
+upper bound, if it is finite, and uses the lower bound only when the upper
+bound is infinite.
+Similarly, when a variable must decrease to its upper bound, the lower bound
+is used to calculate the limiting $\Delta_j$ if it is finite.
+
+\dylp provides a selection of tie-breaking strategies when there are multiple
+candidates with equal
+$\abs{\Delta_{kj}} = \Delta_{\mathrm{min}}$.
+The simplest is to select the first variable $x_k$ such that $\Delta_{kj} = 0$.
+A slightly more sophisticated strategy is to scan all variables
+eligible to leave and pick $x_i$ such that
+$i = \arg \max_{k \in K} \abs{\overline{a}_{kj}}$,
+$K = \{ k \mid \abs{\Delta_{kj}} =  \Delta_{\mathrm{min}} \}$;
+\dylp will use this strategy by default.
+\dylp also provides four additional strategies based on hyperplane alignment,
+as described in \secref{sec:AntiDegenLite}.
+An option allows the tie-breaking strategy to be selected by the client.
+
+In case of degeneracy, the perturbed subproblem anti-degeneracy algorithm
+described in \secref{sec:PerturbedAntiDegeneracy} is also available.
+The client can control the use of perturbed subproblems through two options
+which specify whether a perturbed subproblem can be used, and how many
+consecutive degenerate pivots must occur before the perturbed subproblem
+is created.
+By default, \dylp uses perturbed subproblems aggressively and will
+introduce one when faced with a second consecutive degenerate pivot.
+
+\subsection{Extended Primal Pivot}
+\label{sec:PrimalGenSelectOutVar}
+
+All dual variables have a single finite bound of zero, so it's not possible to
+develop a generalised primal pivoting algorithm analogous to the dual pivoting
+algorithm of \secref{sec:DualGenSelectInVar}.
+It is, however, possible to introduce some flexibility in the selection of the
+leaving variable.
+We can also apply the same strategy used in generalised dual
+pivoting to promote a numerically stable pivot candidate over an unstable 
+candidate.
+
+In phase~I, for an infeasible basic variable with finite upper and
+lower bounds, there are two points where the variable 
+can be pivoted out of the basis: When the variable moves from infeasibility
+to one of its bounds (the `near' bound), and when it has crossed the feasible
+region to the opposite (`far') bound.
+Pivoting when the near bound is reached is optional; pivoting at the far
+bound is mandatory if primal feasibility is to be maintained.
+The same notion can be applied in phase~II, but its utility is much more
+limited: In cases where a basic variable is at its near bound and
+could be pushed to the far bound, we may prefer
+to choose a degenerate and numerically stable pivot over a degenerate and
+numerically unstable pivot.
+
+\dylp implements extended primal pivoting by first collecting the set of
+candidates $x_i$ to leave the basis.
+Variables with two finite bounds get two entries, one with the value of
+$\Delta_{ij}$ associated with the near bound, the other the value associated with
+the far bound.
+The set is then sorted using nondecreasing value of $\abs{\Delta_{kj}}$,
+with numerical stability as the tie-breaker.
+
+The process of scanning for candidates and sorting the resulting set is
+implemented in the routines \pgmid{scanForPrimalOutCands} and
+\pgmid{primalcand_cmp}.
+For efficiency, \pgmid{scanForPrimalOutCands} keeps a `best candidate' using
+the standard primal pivoting rules.
+If this candidate is good (nondegenerate and numerically stable), it is
+accepted as the leaving variable and no further processing is required.
+
+If a good candidate is not identified by the scan, an attempt is made to
+promote a good candidate to the front of the sorted list.
+The criteria is as outlined for generalised dual pivoting: If the amount of
+primal infeasibility that would result from promoting a stable, nondegenerate
+candidate is tolerable, that candidate is promoted and made the leaving
+variable.
+This promotion of a stable pivot over an unstable pivot is implemented in
+the primal version of \pgmid{promoteSanePivot}.
+
+Antidegeneracy using perturbed subproblems is used with extended primal
+pivoting.
+The alignment-based anti-degeneracy strategies are not implemented.

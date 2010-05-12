@@ -1,0 +1,218 @@
+\section{Startup}
+\label{sec:Startup}
+
+\dylp provides a cold, warm, and hot start capability.
+For a cold start, \dylp selects a set of constraints and variables to be the
+initial active constraint system and then crashes a basis.
+For a warm start, \dylp expects that the caller will supply a basis but assumes
+that the active constraint system and other data structures need to be built
+to this specification.
+For a hot start, \dylp assumes that its internal data structures are valid
+except for possible modifications to variable bounds, objective coefficients,
+or right-hand-side coefficients.
+It will incorporate these modifications and continue with simplex iterations.
+
+\dylp will default to attempting a hot start unless specifically requested
+to perform a warm or cold start.
+For all three start types, \dylp will evaluate the constraint system for
+primal and dual
+feasibility, choosing primal simplex unless the constraint system is
+dual feasible and primal infeasible.
+
+It is not possible to perform efficient and foolproof checks to
+determine if the client has violated the restrictions imposed for a hot start.
+At minimum, such a check would require a coefficient by coefficient comparison
+of the constraint system supplied as a parameter with the copy held by \dylp
+from the previous call.
+It is the responsibility of the client to notify \dylp if variable bounds,
+objective coefficients, or right-hand-side coefficients have been changed.
+\dylp will scan for changes and update its copy of the constraint system
+only if the client indicates a change.
+
+Section~\ref{sec:DylpInterface} provides detailed information on the options
+used to control \dylp's startup actions.
+
+The startup sequence for \dylp is shown in Figure~\ref{fig:DylpStartupFlow}.
+\begin{figure}
+\includegraphics{\figures/startupflow}
+\caption{\dylp startup sequence} \label{fig:DylpStartupFlow}
+\end{figure}
+The first actions are determined by the purpose of the call.
+The call may be solely to free retained data structures; if so, this is
+done and the call returns.
+The next action is to determine the type of start --- hot, warm,
+or cold --- requested by the client.
+If a warm or cold start is requested, any state retained from the previous
+call is useless and all retained data structures are freed.
+For all three types of start, options and tolerances are updated to reflect
+the parameters supplied by the client.
+
+For a warm or cold start, the constraint system is examined to see if it
+should be scaled, and the options specified by the client are examined
+to see if scaling is permitted.
+If this assessment determines that scaling is advisable and permitted, the
+constraint system is scaled as described in \secref{sec:Scaling}.
+The original constraint system is cached and replaced by the scaled copy.
+In the case of a hot start, the existing scaled copy, if present, is retrieved
+for use.
+The original system is not consulted again until the solution is packaged for
+return to the client.
+
+Following scaling, the active constraint system is constructed for a warm or
+cold start, or modified for a hot start;
+\S\S\ref{sec:ColdStart}~--~\ref{sec:HotStart} describe the actions in
+detail.
+At the completion of this activity, the active constraint system is assessed
+for primal and dual feasibility and an appropriate simplex phase is chosen.
+
+Once the constraint system is constructed, common initialisation
+actions are performed:
+Data structures are initialised for PSE and DSE pricing, for the
+perturbation-based antidegeneracy algorithm, and for the pivot rejection
+algorithm.
+
+To complete the startup sequence, \dylp evaluates the constraint system and
+client options to determine if it should perform constraint activation
+or variable activation or deactivation before starting simplex iterations.
+Variable deactivation is mutually exclusive to constraint and variable
+activation; the former is considered only during a cold start, the latter
+only during a warm or hot start.
+
+An initial round of variable deactivation is performed during a cold start
+if the number of active variables exceeds the number specified
+by the \pgmid{coldvars} option.
+This activity is intended to reduce the initial size of constraint systems
+with very large numbers of variables (\eg, set covering formulations).
+
+Constraint or variable activation, or both, are performed during a
+warm or hot start if requested by the client.
+Constraint activation is performed before variable activation.
+If initial constraint activation is requested, \dylp will add all violated
+constraints to the active system.
+If constraints are added, primal feasibility will be lost, and \dylp will
+reassess the choice of initial simplex phase.
+
+If initial variable activation is requested, the action taken depends on the
+initial simplex phase.
+If \dylp will enter primal simplex, variables with favourable primal reduced
+costs are activated, evaluated under the phase~I or phase~II objective as
+appropriate.
+For dual simplex, variables which will tend to bound the dual problem are
+selected for activation:
+For each infeasible primal basic variable (nonbasic dual variable with
+favourable reduced cost), primal variables with optimal reduced costs
+(feasible dual constraints) which will bound motion in the direction of
+the incoming dual variable are selected for activation.
+
+\subsection{Cold Start}
+\label{sec:ColdStart}
+
+\dylp performs a cold start in two phases.
+The first phase, implemented in \pgmid{dy_coldstart}, constructs the initial
+active constraint system.
+The second phase, implemented in \pgmid{dy_crash}, constructs the initial
+basis.
+
+To construct the initial active constraint system, \pgmid{dy_coldstart} first
+checks to see if the client has specified that the full constraint system
+should be used.
+In this case, the active system will be the entire constraint system and the
+dynamic simplex algorithm will reduce to a single execution of either primal or
+dual simplex.
+
+If the client specifies that \dylp should work with a partial constraint
+system, the constraints are first separated into equalities and inequalities.
+All equalities are included in the initial active system.
+
+The remaining inequalities are sorted, using the angle of the
+constraint normal $a_i$ to the objective function normal $c$ as the figure
+of merit,
+\begin{equation*}
+a_i \angle c = \frac{180}{\pi} \cos^{-1} \frac{a_i \cdot c}{\norm{a_i}\norm{c}}
+\end{equation*}
+Consider a minimisation objective and `$\leq$' inequalities.
+The normals of the inequalities point out of the feasible region, and the
+normal of the objective function will point into the feasible region at
+optimality.
+Hence a constraint whose normal forms an angle near \degs{180} with the normal
+of the objective should be more likely to be active at optimum.
+A constraint whose normal forms an angle near \degs{0} is more likely to define
+a facet on the far side of the polytope.
+Unfortunately, `more likely' is not certainty, and it's easy to
+construct simple
+two-dimensional examples where the normal of one of the constraints active
+at optimality forms an acute angle with the normal of the objective function.
+
+\dylp allows the client to specify one or two angular intervals and a sampling
+fraction which are used to select inequalities to add to the initial
+active system.
+By default, the initial system will be populated with 50\% of the
+inequalities which form angles in the intervals
+$[\degs{0},\degs{90})$ and $(\degs{90},\degs{180}]$.
+(\textit{I.e.}, inequalities whose normals are perpendicular to the objective
+normal are excluded entirely, and half of all other inequalities will be
+added to the initial active system.)
+The inequalities selected will be spread evenly across the specified range(s).
+\dylp will activate all variables referenced by each constraint.
+
+Once the initial constraint system is populated, \pgmid{dy_crash} is called to
+select an initial basis.
+\dylp offers three options for the initial basis, called `logical', `slack',
+and `architectural'.
+A logical basis is the standard unit basis composed of slack and artificial
+(logical) variables for the active constraints.
+A slack basis again uses slack variables for inequalities, but attempts to
+select architectural variables for equalities, including artificial variables
+only if necessary.
+An architectural basis attempts to choose architectural variables for all
+constraints, selecting slack and artificial variables only when necessary.
+
+There are many qualities which are desirable in an initial basis, and they
+are often in conflict.
+A logical basis is trivially easily to construct, factor, and invert, and
+has excellent numerical stability.
+On the other hand, such a basis is hardly likely to be the optimal basis.
+When choosing architectural variables, free variables are highly desirable
+since they will never leave the basis.
+In addition, \dylp's basis construction algorithm tries to select architectural
+variables which will form an approximately lower-diagonal matrix and
+provide numerically stable pivots.
+Constructing a matrix which is approximately lower-diagonal minimises fill-in
+when the basis is factored.
+Several of the ideas implemented in \dylp's initial basis
+construction algorithms are described by Bixby in~\cite{Bix92a}.
+
+Since \dylp makes an effort to populate the constraint system with
+constraints that should be tight at optimality, an architectural basis
+is the default.
+
+\subsection{Warm Start}
+\label{sec:WarmStart}
+
+The routine \pgmid{dy_warmstart} implements a warm start.
+The client is expected to supply an initial basis,
+expressed as a set of active constraints and corresponding basic variables.
+By default, \dylp will activate all variables referenced by each constraint.
+As an option, the client can specify an initial set of active variables.
+
+\subsection{Hot Start}
+\label{sec:HotStart}
+
+For a hot start, \dylp assumes that all internal data structures are exactly as
+they were when it last returned to the client.
+Changes to the constraint system must be confined to the
+right-hand-side, objective, and variable upper and lower bound vectors,
+so that the basis factorisation and inverse are not affected.
+The client is responsible for indicating to \dylp which of these vectors have
+been changed.
+The routine \pgmid{dy_hotstart} scans the changed vectors and orchestrates
+any updates to the corresponding data structures in the active constraint
+system.
+Unlike a cold or warm start, the basis is \textit{not} factored prior to
+resuming pivots.
+\dylp assumes that the basis was refactored as part of the normal preoptimality
+sequence prior to the last return to the client and that no intervening
+pivots have occurred.
+Any numerical problems arising from the modifications specified by the
+client will be picked up in the normal course of dynamic simplex execution.
+

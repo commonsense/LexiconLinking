@@ -1,0 +1,179 @@
+#!/bin/csh
+
+# usage: build [-c] [-f] [-u N] [-ps] [-pdf] [target]
+
+# With no flags, <target> will be handed to make as `make <target>'
+# With the -f flag, the first command run is `latex <target>'
+# In either case, the log file is scanned to decide what more needs to be done.
+# You can limit the total number of latex runs with the -u N argument.
+
+set knownTargets = (dylp dylpfigs)
+set dfltTarget = dylp
+
+set makecmd = 'make -f makefile.dylpdoc'
+
+# Make sure we have a directory for generated .eps files for figures.
+
+if ( ! -e Figures) then
+  mkdir Figures
+endif
+
+# Tell TeX where to find its inputs. TEXMFHOME is predefined in TeX Live to
+# allow a user to point to a local source tree for style files, fonts, etc.
+# This tree must have the same structure as the distribution tree.
+# TEXINPUTS is for general input files. See the TeX Live documentation. If your
+# TeX distribution uses different mechanisms, well, good luck.
+
+setenv TEXMFHOME @abs_srcdir@/TexMF
+setenv TEXINPUTS @abs_srcdir@/:
+
+printenv | grep TEX
+
+set force = 0
+set clean = 0
+set ltxlimit = 5
+set needLaTeX = 0
+set needBibTeX = 0
+set buildPDF = 0
+set buildPS = 0
+
+while ($#argv >= 1)
+  switch ($1)
+    case *-c*:
+      set clean = 1
+      breaksw
+    case *-f*:
+      set force = 1
+      breaksw
+    case *-pdf:
+      set buildPDF = 1
+      breaksw
+    case *-ps:
+      set buildPS = 1
+      breaksw
+    case -u:
+      shift
+      set ltxlimit = $1
+      breaksw
+    case *-h*:
+      echo "usage: build [-c|--clean] [-f|--force] [-u N] [-ps] [-pdf] [target]"
+      echo "  known targets: $knownTargets"
+      echo "  default target: $dfltTarget"
+      echo "  build --clean with no target will clean and exit"
+      echo "  build --clean with a target will clean and then build the target"
+      echo "  For all options, you can use `-' or `--'."
+      exit
+    default:
+      set tgt = $1
+      breaksw
+  endsw
+
+  shift
+end
+
+# Clean out the previous build?
+
+if ($clean == 1) then
+  $makecmd clean
+  if ($?tgt == 0) exit
+endif
+
+# Known target?
+
+if ($?tgt == 0) then
+  set tgt = $dfltTarget
+endif
+set found = 0
+foreach knowntgt ($knownTargets)
+  if ($knowntgt == "$tgt") then
+    echo "Building $tgt"
+    set found = 1
+    break
+  endif
+end
+if ($found == 0) then
+  echo "build: Unknown target $tgt"
+  echo "\ttry build --help"
+  exit
+endif
+
+# Check if we need to do anything.
+
+if ($needLaTeX == 0) then
+  $makecmd -q $tgt
+  if ( $status == 0) then
+    echo "Make says no need to run LaTeX."
+  else
+    set needLaTeX = 1
+    echo "Make says run LaTeX."
+  endif
+endif
+
+if ($needBibTeX == 0) then
+  $makecmd -q $tgt.bbl
+  if ( $status == 0) then
+    echo "Make says no need to run BibTeX."
+  else
+    set needBibTeX = 1
+    echo "Make says run BibTeX."
+  endif
+endif
+
+if ($force == 0) then
+  if ($needLaTeX == 1) then
+    echo "Calling make for $tgt"
+    $makecmd $tgt
+    @ ltxlimit--
+  endif
+else
+  echo "Forcing LaTeX for $tgt"
+  latex $tgt
+  @ ltxlimit--
+endif
+
+if ($ltxlimit == 0) exit
+
+# Now check if we need to run BibTex. There are two conditions to check:
+# 1) The log file contains one or both of the following lines:
+#	No file dylp.bbl.
+#	LaTeX Warning: Citation `----' on page N undefined ...
+# 2) tgt.bbl already exists, and make -q tgt.bbl indicates work to be done
+# This section runs LaTex only once --- we'll need to run a second time, but
+# that'll be swept up in the next block for labels.
+
+egrep 'No file [^.]*\.bbl|Citation .* undefined' $tgt.log
+if ($status == 0) then
+  set needBibTeX = 2
+endif
+if ($needBibTeX > 0) then
+  echo "Running BibTex to generate/update $tgt.bbl."
+  bibtex $tgt
+  echo "Running LaTeX for initial scan of $tgt.bbl"
+  latex $tgt
+  @ ltxlimit--
+  if ($ltxlimit == 0) exit
+endif
+
+# Do we need to run again to get labels right?
+
+egrep 'Rerun' $tgt.log
+if ($status == 0) then
+  echo "Running LaTex for cross-references"
+  latex $tgt
+  @ ltxlimit--
+  if ($ltxlimit == 0) exit
+endif
+
+# And did the user ask for more than a DVI file? We can build PostScript or
+# PDF.
+
+if ($buildPS == 1) then
+  echo "Running dvips for PostScript output"
+  dvips -D1200 -o dylp.ps dylp.dvi
+endif
+
+if ($buildPDF == 1) then
+  echo "Running pdflatex for PDF output"
+  make -f makefile.dylpdoc $tgt.pdf
+endif
+

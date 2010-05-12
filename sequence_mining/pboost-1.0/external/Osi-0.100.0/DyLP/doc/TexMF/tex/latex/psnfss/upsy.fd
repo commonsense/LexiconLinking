@@ -1,0 +1,9 @@
+% LaTeX2e fd file for Symbol font. for PSNFSS  1995/08/11
+%
+% Edited to add oblique Symbol.
+
+\DeclareFontFamily{U}{psy}{}
+\DeclareFontShape{U}{psy}{m}{n}{<->psyr}{}
+\DeclareFontShape{U}{psy}{m}{sl}{ <-> psyro }{}
+
+\endinput

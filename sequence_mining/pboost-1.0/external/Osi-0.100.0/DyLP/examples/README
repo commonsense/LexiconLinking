@@ -1,0 +1,64 @@
+
+  svn/cvs: $Id: README 100 2006-07-09 01:07:51Z lou $
+
+  `make examples' will build the dylp wrapper programs osi_dylp and
+  odsi+dylp. You must have Dylp, OSI and OsiDylp built and installed before
+  the makefile in this directory will work properly. Be sure to execute
+  `make install' in the top level directory of the distribution before
+  trying to build the examples.
+
+  After building the sample wrapper programs, you should have two wrappers:
+
+    * osi_dylp, a simple native interface to dylp, written in C. This
+      wrapper has no dependence on COIN code. osi+dylp is essentially the
+      same thing, but C++. It's not built by default, you'll need to edit
+      Makefile.in to build it.
+
+    * odsi+dylp, a simple wrapper that runs dylp through the OsiDylp OSI
+      layer.
+
+  The shell script `plain' provides a convenient way to supply the needed
+  command line parameters for the wrappers. Typing `plain' will get you a
+  usage message. `plain <problem>' will search in the current directory and
+  in COIN/Mps/Netlib for the specified problem file (Note 1). By default,
+  plain will run the odsi+dylp wrapper; you can change the default by
+  editing the script. You can also select the wrapper you want as a command
+  line parameter.
+
+  Once it locates the problem file, plain will look around for a dylp options
+  file, by default <problem>.spc. If it doesn't find one, it will look for
+  a file named generic.spc. This distribution comes with generic.spc and
+  greenbeb.spc, just to give you an idea of how options files look.
+
+  E.g., `plain adlittle' will use osi_dylp to solve the Netlib example
+  problem adlittle, with the generic.spc options file.
+
+  Expected results, for the default build (info printing and statistics
+  enabled, optimised compile), for two Netlib problems:
+
+  Problem	Objective	Run time
+
+  adlittle	 225494.963	  .02 sec.	osi_dylp, odsi+dylp
+
+  greenbeb     -4302260.26	12.04 sec.	odsi+dylp
+				27.84 sec.	osi_dylp
+
+  adlittle is tiny, and a fast test. greenbeb makes dylp work harder, and
+  shows the improvement due to CoinPresolve, which is used by OsiDylp.
+
+  The run times given above are for a SunBlade 1500, 1GB RAM, 1MB L2 cache.
+  Your mileage will assuredly vary, but at least you have an idea of roughly
+  how long to wait.
+
+  ---------------------------
+  Note 1: Compressed (.gz) files will be unzipped into this directory. Dylp's
+	  native mps reader doesn't support compressed files, nor does it
+	  support files that take full advantage of MPS fixed format and use
+	  spaces in the row and column names. Since the OsiDylp interface
+	  layer makes use of the COIN MPS i/o facilities, which support the
+	  full MPS specification and compressed files, there's no particular
+	  motivation to upgrade dylp's mps reader.  Dylp's MPS reader, on the
+	  other hand, does support some extensions that may be useful in
+	  other contexts.
+  ---------------------------
+
