@@ -11,6 +11,7 @@ testVerbSenses = ["run","breathe","meow"]
 testVerbSenses = [["run",0],["breathe",1],["meow",2]] ## [[verbSenseName,first_Class_Index,second_Class_Index, third...],...]
 testNounSenses = [["dog",0],["cat",1],["rabbit",2]]
 
+
 ## translate to unicode:
 def toUincode(l):
     return [[unicode(l[i][0]), l[i][1]] for i in range(len(l))]
