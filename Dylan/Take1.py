@@ -11,16 +11,27 @@ testVerbSenses = ["run","breathe","meow"]
 testVerbSenses = [["run",0],["breathe",1],["meow",2]] ## [[verbSenseName,first_Class_Index,second_Class_Index, third...],...]
 testNounSenses = [["dog",0],["cat",1],["rabbit",2]]
 
+## translate to unicode:
+def toUincode(l):
+    return [[unicode(l[i][0]), l[i][1]] for i in range(len(l))]
+
+testNounSenses = toUnicode(testNounSenses)
+testVerbSenses = toUnicode(testVerbSenses)
 
 ## AS OF TUESDAY APRIL 27:
-## I was looking to see what the incoming datatype is, buold around that.
+## I was looking to see what the incoming datatype is, build around that.
 ## Then, finish methods, write tests.
-## unicode strings (run build_lattices.py in ~/goalmining/build_lattices
+## (unicode strings (run build_lattices.py in ~/goalmining/build_lattices)) DONE
 
+## TODO as of 5/12/10:
+## rewrite init method to put weights into proper place/use class indices properly.
+## finish implementing methods
+## (from build_lattices.py:- bipartite:  a list of ((:wjk:verb,noun),weight) tuples)
 
 class Lattice:
 
-    ## list of verbSenses, list of nounSenses, and a [(len(verbSenses))x(len(nounSenses))] array
+
+    ## IN: list of verbSenses, list of nounSenses, and a [(len(verbSenses))x(len(nounSenses))] array
     ## description of verbSenses/nounSenses:
     ## [[verbName,first_Sense_Index,second_Sense_Index, third...],...]
     def __init__(self, verbSenses, nounSenses, weights):
