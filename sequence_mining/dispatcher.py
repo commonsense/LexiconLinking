@@ -39,13 +39,16 @@ def extract_labeled_sequence_gaps(source_seq, test_seq):
     """ Takes two sequences and returns a dictionary of labeled gap values iff TEST_SEQ is a sub-sequence
     of SOURCE_SEQUENCE.
     
-        extract_labeled_sequence_gaps([1,2,3,4],[1,2,5,7,3,6,4]) #=> {2:[5,7],3:[6]}
-        extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,2,3,4])   #=> {1:[1,1]}
-        extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,3])       #=> {}
+    extract_labeled_sequence_gaps([1,2,3,4],[1,2,5,7,3,6,4])    #=> {1:[5,7],4:[6]}
+    extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,2,3,4])      #=> {0:[1,1]}
+    extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,3])          #=> {}
+    extract_labeled_sequence_gaps([1,2,3,4],[0,0,1,2,3,4,5,5])  #=> {}
+    extract_labeled_sequence_gaps([1,5,1,6],[1,2,3,5,1,4,5,6])  #=> {0:[2,3],4:[4,5]}
+    extract_labeled_sequence_gaps([1,5,1,6],[1,2,3,5,1,6])      #=> {0:[2,3]}
     """
     slot_vals = {} 
     tmp_gap = []
-    prev_word = 0   # the temp value used as a key for the gaps
+    prev_word_pos = 0   # the temp value used as a key for the gaps
     pos_in_seq = 0  # position of source_seq of test_seq's current match
     for i, el in enumerate(test_seq):
         if (len(source_seq)-pos_in_seq > len(test_seq)-i) or (pos_in_seq == len(source_seq)):
@@ -54,9 +57,9 @@ def extract_labeled_sequence_gaps(source_seq, test_seq):
             # match
             pos_in_seq += 1
             if pos_in_seq != 1 and len(tmp_gap) != 0:
-                slot_vals[prev_word] = tmp_gap
+                slot_vals[prev_word_pos] = tmp_gap
                 tmp_gap = []
-            prev_word = el
+            prev_word_pos = i 
         else:
             tmp_gap.append(el)
     if pos_in_seq == len(source_seq):
@@ -150,7 +153,7 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
     to_replace = [] 
     for seq_i in xrange(0,len(sequences)):
         for key, gaps in sorted(all_sequence_matches[seq_i].items(), key = lambda x: len(x[1]), reverse=True):
-            seq_description = "Sequence %i: %s " % (seq_i,' / '.join(map(lambda x: keynames[x]+(key == x and "/_" or ""), sequences[seq_i])))
+            seq_description = "Sequence %i: %s " % (seq_i,' / '.join(map(lambda pos,x: keynames[x]+(key == pos and "/_" or ""), enumerate(sequences[seq_i]))))
             print "\t Set: ", ' / '.join(map(lambda x: ' '.join(map(lambda y: keynames[y], x)), gaps))
             print gaps, len(gaps)
             if len(gaps) >= max_len:
@@ -197,10 +200,12 @@ def run_pspan(top_k, maxgap, minlen, totalruns, indicies,seen_seq = []):
     return max_len, mined_seq 
 
 def test0():
-    print extract_labeled_sequence_gaps([1,2,3,4],[1,2,5,7,3,6,4])    #=> {2:[5,7],3:[5]}
-    print extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,2,3,4])      #=> {1:[1,1]}
+    print extract_labeled_sequence_gaps([1,2,3,4],[1,2,5,7,3,6,4])    #=> {1:[5,7],4:[6]}
+    print extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,2,3,4])      #=> {0:[1,1]}
     print extract_labeled_sequence_gaps([1,2,3,4],[1,1,1,3])          #=> {}
     print extract_labeled_sequence_gaps([1,2,3,4],[0,0,1,2,3,4,5,5])  #=> {}
+    print extract_labeled_sequence_gaps([1,5,1,6],[1,2,3,5,1,4,5,6])  #=> {0:[2,3],4:[4,5]}
+    print extract_labeled_sequence_gaps([1,5,1,6],[1,2,3,5,1,6])      #=> {0:[2,3]}
 
 
 def test1():
