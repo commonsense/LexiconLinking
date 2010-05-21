@@ -1,33 +1,18 @@
 import scipy
-import numpy
 from scipy import sparse
-import pymongo
+import numpy
 from numpy.random import randint
+import pymongo
 
-## an exceedingly simple test case
-testWeights = scipy.array([[5,3,5],[4,4,4],[0,10,0]])
-edge = ("meow","rabbit",5)
-
-testNounSenses = ["dog","cat","rabbit"]
-testVerbSenses = ["run","breathe","meow"]
-
-##testVerbSenses = [["run",0],["breathe",1],["meow",2]] ## [[verbSenseName,first_Class_Index,second_Class_Index, third...],...]
-##testNounSenses = [["dog",0],["cat",1],["rabbit",2]]
-
-## verb = row, noun = column
-
-
-## translate to unicode:
-def toUnicode(l):
-    return [[unicode(l[i][0]), l[i][1]] for i in range(len(l))]
-
-testNounSenses = toUnicode(testNounSenses)
-testVerbSenses = toUnicode(testVerbSenses)
-
-## AS OF TUESDAY APRIL 27:
-## I was looking to see what the incoming datatype is, build around that.
-## Then, finish methods, write tests.
-## (unicode strings (run build_lattices.py in ~/goalmining/build_lattices)) DONE
+"""
+    M.rows_by_clusters() => [[5,2],[1,4],[3]]
+    M.columns_by_clusters() => [[1],[2],[3]]
+    M.clusters() => ([[5,2],[1,4],[3]], [[1],[2],[3]])
+    M.members_in_row_cluster(2) => [1,4]
+    M.members_in_column_cluster(2) => [2]
+    M.move_to_new_row_cluster([1,2,4])
+    M.move_to_new_colum_cluster([1,2,4])
+"""
 
 ## TODO as of 5/12/10:
 ## rewrite init method to put weights into proper place/use class indices properly.
@@ -37,18 +22,36 @@ testVerbSenses = toUnicode(testVerbSenses)
 class Lattice:
 
 
-    ## IN: list of verbs, list of nouns, and a noun-verb pairs list of format [[noun, verb, weight]...]
     def __init__(self, verbs, nouns, weights):
-        self.verbSenseNum = 0
-        self.nounSenseNum = 0
 
-        self.verbs = numpy.array(verbs)
-        self.nouns = numpy.array(nouns)
+        self.verbs = verbs
+        self.nouns = nouns
         self.weights = weights
 
+        # pick arbitrary row and col numbers
+        self.num_row_clusters = randint(1,len(self.verbs))
+        self.num_col_clusters = randint(1,len(self.nouns))
+        # and make arbitrary assignmentsa
+        print self.num_col_clusters
+        self.row_clusters = numpy.ndarray((1,len(self.verbs)))
+        self.row_clusters = randint(0,self.num_row_clusters,len(self.verbs))
+        self.row_clusters = numpy.ndarray((1,len(self.nouns)))
+        self.col_clusters = randint(0,self.num_col_clusters,len(self.nouns))
+        
+
+
+    def rows_by_clusters(self):
+        for i in xrange(0,self.num_row_clusters):
+            print "Clusters in group %i " % (i)
+            cluster_idx = self.row_clusters==i
+            print cluster_idx
+                                    
+        #print self.row_clusters
+        #return self.verbs[ self.row_clusters]
+        
         ## given a numpy array of format [verb, noun, num], returns a matrix with that info.
     def createWeights(self, nvList):
-        ## (just in case, make the nvList a numpy array)
+        ## (just in casase, make the nvList a numpy array)
         nvList = numpy.array(nvList)
 
         weights = numpy.zeros(nvList.shape, dtype=int)
@@ -165,12 +168,14 @@ def test1():
     fake_verbs = []
     for i in xrange(0,rows): fake_verbs.append("verb_%i" % i)
     for i in xrange(0,cols): fake_nouns.append("noun_%i" % i)
-    L = Lattice(fake_verbs,fake_nouns,A)
+    l = Lattice(fake_verbs,fake_nouns,A)
+    return l
 
 #if __name__ == "__main__":
-A = test1()
+x = test1()
+print x.rows_by_clusters()
 
-def test2()
+def test2():
     from pymongo import Connection
     connection = Connection('localhost')
     db = connection.sm

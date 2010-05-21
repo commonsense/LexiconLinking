@@ -1,6 +1,0 @@
-glplib1.lo .libs/glplib1.o: glplib1.c \
-  /usr/lib/gcc/i686-apple-darwin9/4.0.1/include/stddef.h glplib.h
-
-/usr/lib/gcc/i686-apple-darwin9/4.0.1/include/stddef.h:
-
-glplib.h:
