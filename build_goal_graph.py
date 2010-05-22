@@ -148,14 +148,15 @@ def load_pspan_results():
             slot_vals.append(slot_val)
         for sv in slot_vals:
             sv_string = ' '.join(sv)
+            if len(sv_string) < 4: continue
             slot_to_id[sv_string] = lhs
             id_to_slots[lhs].append(sv_string)
+    return slot_to_id 
 
 
 
 
-
-slot_graph = load_pspan_results()
+slot_to_id = load_pspan_results()
 #nx.write_dot(slot_graph,"slot_graph.dot")
 
 
@@ -208,6 +209,7 @@ def get_nouns(seq):
     return nouns
 
 
+colors = { 'happens-before': 'blue', 'can-result-in': 'pink', 'stronger-than': 'green', 'similar':'red', 'opposite-of':'purple','unk':'orange', 'low-vol':'brown'}
 relations_and_thresholds = { 'happens-before': 11, 'can-result-in': 11, 'stronger-than': 10, 'similar':11, 'opposite-of':10,'unk':20, 'low-vol':10}
 #relations = load_verb_ocean(relations_and_thresholds)
 try:
@@ -216,11 +218,25 @@ except:
     graphs = load_verb_ocean_into_graph(relations_and_thresholds)
     cPickle.dump(graphs,open('verb_ocean.pickle','wb'))
 
+replaced = {}
+def replace_with_id(seq):
+    if replaced.has_key(seq):
+        return replaced[seq]
+    else:
+        i = len(replaced.keys())
+        replaced[seq]=i
+        return i
+
+        
+
+
+OUTPUT_DIR = "boost_seq"
+index_file = open("%s.index" % OUTPUT_DIR, 'w') 
+
 def parse_plan_statements():
+    file_num = 0
+    categories = 0
     goals = cPickle.load(open('./plan_jar/plans.cornichon.pickle','r'))
-
-    colors = { 'happens-before': 'blue', 'can-result-in': 'pink', 'stronger-than': 'green', 'similar':'red', 'opposite-of':'purple','unk':'orange', 'low-vol':'brown'}
-
     for goal, plans in goals.items():
         goal = clean_statement(goal.lower())
         verb = goal.split()[0]
@@ -229,15 +245,28 @@ def parse_plan_statements():
         # verbs in VerbOcean
         goal_graph = nx.MultiDiGraph()
         for relation,graph in graphs.items():
+            if relation not in ['stronger-than','similar']: continue
             if graph.has_node(verb):
-                print "subgraph", graph.edges(graph.neighbors(verb),data=True)
                 goal_graph.add_edges_from(graph.edges(graph.neighbors(verb),data=True),color=colors[relation],label=relation)
         nouns = get_nouns(pos_tag(goal.split())[1:])
-        print goal,"\n", verb, nouns
-        if goal_graph != None: nx.write_dot(goal_graph,"goals.dot")
-        x = raw_input("Press Enter to continue...")
+        
+        for alt_verb in goal_graph.nodes():
+            # output sequence output file
+            of = file('%s/%i' % (OUTPUT_DIR,file_num),'w')
+            output = [alt_verb]+nouns
+            for o in output:
+                of.write("%i\n" % (replace_with_id(o)))
+            of.close()
+            index_file.write("%s/%i %i\n" % (OUTPUT_DIR,file_num,categories))
+            file_num +=1
+        categories +=1
         #print plans
+
+    kf = open("%s.keys" % (OUTPUT_DIR), "w")
+    for k,v in replaced.items():
+        kf.write("%i\t%s\n" % (v,k))
 
         #print len(plans)
 
 
+parse_plan_statements()
