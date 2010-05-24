@@ -13,15 +13,21 @@ def remove_nested_phrases(sent):
     """ removes parenthetical and comma seperated remarks.  Parenthetical remarks
     can be much larger (to be removed) than comma separated statements.
 
-    In contemporary English, the comma is used to stand for "any pause".  Consequently,
-    this function restricts the filter to short (20 character or fewer) comma-delinated
-    phrases, such as proper names, that should not be the most meaningful component of
-    the sentence.
+    In contemporary English, the comma is often used to stand in for any pause. To avoid 
+    over-filtering, this function restricts the filter to short (20 character or fewer) 
+    comma-delinated phrases, such as proper names, that should not be the most meaningful
+    component of the sentence.
     """
     return re.sub(r'\([a-zA-Z \/]{1,90}\)\s+','',re.sub(r',[a-zA-Z \/]{1,20},','',sent)).replace(" , "," ")
 
 def start_parse_clean(sent):
     return start_parse(remove_nested_phrases(sent).replace("  "," "))
+
+def save_start_error(kind,sent):
+    of = open('start_errors.log','a')
+    of.write("%s\t%s\n" % (kind,sent))
+    print "Error: %s with sentence %s" % (kind,sent)
+    of.close()
 
 def start_parse(sent):
     """ Takes a sentence, as a string, and parses it using the start parser. 
@@ -33,13 +39,16 @@ def start_parse(sent):
             'query': sent,\
             'pa': 'parse',\
             'action': 'compute-lf'}
-    print "Querying", sent
     encoded = urllib.urlencode(data)
-    request = urllib2.Request(url, encoded)
-    response = urllib2.urlopen(request)
-    page = response.read()
+    try:
+        request = urllib2.Request(url, encoded)
+        response = urllib2.urlopen(request)
+        page = response.read()
+    except:
+        save_start_error("URL Request", sent)
+        return {}
     if page.count("<PRE>") == 0 or page.count("</PRE>") == 0: 
-        print "Error: non-parseable sentence: ", sent
+        save_start_error("Unparsable", sent)
         return {}
     pre_start = page.index("<PRE>")
     pre_end = page.index("</PRE>")
@@ -53,13 +62,16 @@ def start_parse(sent):
                 left, rel, right = entry[1:-1].split()
                 results[left].append((rel,right))
             else:
-                print "Error: strange tuple:", entry
+                save_start_error("Malformed Tuple", sent)
+        else:
+            save_start_error("No tuples", sent)
     print results
     # remove the defaultdict stuff
     return dict(results)
 
-print remove_nested_phrases("I, who want to live, went to (home) school")
+if __name__ == "__main__":
+    # some tests parses 
+    print start_parse_clean("i just keep thinking about what her behavior could be caused by") 
+    print remove_nested_phrases("had too much lying around in my wardrobes , so took it all out , and did the process of elimination , i actually found a few forgotten numbers , and did some diy also , then rest of the clothes just popped them in a bag and off to the charity shop")
+    print start_parse_clean("we lived in a village ( charles hill a dsfasdf asdf asd fasdfasd) out west almost into namibia.")
 
-print start_parse_clean("we lived in a village ( charles hill a dsfasdf asdf asd fasdfasd) out west almost into namibia.")
-
-#print start_parse("I love to eat lots of foods")
