@@ -29,6 +29,9 @@ def save_start_error(kind,sent):
     print "Error: %s with sentence %s" % (kind,sent)
     of.close()
 
+def remove_plus(word):
+    return word.count("+") == 0 and word or word[0:word.index("+")]
+
 def start_parse(sent):
     """ Takes a sentence, as a string, and parses it using the start parser. 
     Ive found it helps parsing to first remove nested phrases and parenthetical 
@@ -58,14 +61,15 @@ def start_parse(sent):
         # if the line is non-blank and begins with an open bracket
         if len(entry) > 0 and entry[0] == '[':
             # if the tuple is size 3
-            if len(entry.split()) == 3:
-                left, rel, right = entry[1:-1].split()
-                results[left].append((rel,right))
+            split_entry = entry[1:-1].split()
+            if len(split_entry) == 3:
+                if '+' in split_entry[0]:
+                    left, rel, right = map(lambda x: remove_plus(x), split_entry)
+                    results[left].append((rel,right))
             else:
                 save_start_error("Malformed Tuple", sent)
         else:
             save_start_error("No tuples", sent)
-    print results
     # remove the defaultdict stuff
     return dict(results)
 
