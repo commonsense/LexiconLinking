@@ -1,17 +1,19 @@
 #!/bin/env python
-import scipy as sp
-from nltk.corpus import wordnet as wn
-from csc.divisi.util import get_picklecached_thing
-from nltk.corpus import verbnet as vn
+#import scipy as sp
 from operator import itemgetter
 from collections import defaultdict
-from nltk import pos_tag, clean_html
 import pymongo
 import copy 
 import itertools
 import cPickle, re
 import networkx as nx
 from start_wrapper import *
+try:
+    from nltk.corpus import verbnet as vn
+    from nltk.corpus import wordnet as wn
+    from nltk import pos_tag, clean_html
+except:
+    print "Could not import NLTK"
 
 # load psyco when possible
 try:
@@ -233,20 +235,30 @@ index_file = open("%s.index" % OUTPUT_DIR, 'w')
 
 
 
+
 def parse_plan_statements(plan_statements,save=True):
     """ Iterates through a list of plan statements and parses each sentence using 
     the web-based START parser, and optionally when save==True, adds the parsed 
     result to the plan['parsed'] entry and saves the pickle file as 'parse_plans.pickle'
     
     It also keeps track of the verb count, used later for TD-IDF normalization."""
+    from pymongo import Connection
+    connection = Connection('localhost')
+    db = connection.plans
+    ct = 0
     verb_ct = defaultdict(int)
     parsed_correctly = 0
     parsed_incorrectly = 0
     # go through each goal statement 
-    for goal, plans in goals.items():
+    for goal, plans in goals.items()[1:2]:
+        ct += 1
+        print "--- On goal #", ct, "of ", len(goals.keys())
         # for each 'how_i_did_it' story, which I call a 'plan'
+        parsed_plans = []
+        goal_verb_count = defaultdict(int)
         for plan in plans:
             parsed = {} 
+            unique_verbs = []
             # for each sentence in the plan (found earlier by a sentence segmenter) 
             for sent in plan['plan']:
                 # parse the plan
@@ -262,34 +274,20 @@ def parse_plan_statements(plan_statements,save=True):
                     # frequency count
                     for word in parsed_sent.keys():
                         if word.count('+') != 0:
+                            unique_verbs.append(word)
                             verb_ct[word] += 1
-            # store the parse dictionary in the plan 
-            plan['parsed']= parsed
-    print verb_ct
+            parsed_plans.append(parsed)
+            for verb in set(unique_verbs):
+                goal_verb_count[verb] += 1
+        db.goals.insert({'goal':goal, 'num_plans': len(plans), 'parsed': parsed_plans,'verb_counts': goal_verb_count})
+        # store the parse dictionary in the plan
+    db.meta.insert({'verb_counts_global':verb_ct})
     print "Parsed ", parsed_correctly, " of ", parsed_incorrectly+parsed_correctly, " sentences "
-    if save:
-        print "Writing to file"
-        cPickle.dump(plan_statements,open('parsed_plans.pickle','wb'))
-        cPickle.dump(verb_ct,open('verb_count.pickle','wb'))
-    return [parsed_statements, verb_ct]
+    #db.goals.create_index(['goal','num_plans'], unique=True) 
 
-
-def load_parsed_plan_statements(goals,force=False):
-    """ Opens the parsed plan statements pickle or creates a new one """
-    def parse_plans():
-        return parse_plan_statements(goals)
-    if force:
-        return parse_plans()
-    else:
-        try:
-            parsed_plans = cPickle.load(open('parse_plans.pickle','r'))
-            verb_ct = cPickle.load(open('verb_count.pickle','r'))
-            return [parsed_plans,verb_ct]
-        except:
-            return parse_plans()
 
 goals = cPickle.load(open('./plan_jar/plans.cornichon.pickle','r'))
-parsed_plan_satements, verb_ct = load_parsed_plan_statements(goals,force=False)
+parse_plan_statements(goals)
 
 def salient_plans(): 
     mDur = min(filter(lambda x: x != 0, map(lambda y: y['duration'], goals[mGoal])))
