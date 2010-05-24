@@ -11,6 +11,7 @@ import copy
 import itertools
 import cPickle, re
 import networkx as nx
+from start_wrapper import *
 
 # load psyco when possible
 try:
@@ -156,11 +157,8 @@ def load_pspan_results():
 
 
 
-slot_to_id = load_pspan_results()
+#slot_to_id = load_pspan_results()
 #nx.write_dot(slot_graph,"slot_graph.dot")
-
-
-
 
 
 from pymongo import Connection
@@ -233,10 +231,89 @@ def replace_with_id(seq):
 OUTPUT_DIR = "boost_seq"
 index_file = open("%s.index" % OUTPUT_DIR, 'w') 
 
-def parse_plan_statements():
+
+
+def parse_plan_statements(plan_statements,save=True):
+    """ Iterates through a list of plan statements and parses each sentence using 
+    the web-based START parser, and optionally when save==True, adds the parsed 
+    result to the plan['parsed'] entry and saves the pickle file as 'parse_plans.pickle'
+    
+    It also keeps track of the verb count, used later for TD-IDF normalization."""
+    verb_ct = defaultdict(int)
+    parsed_correctly = 0
+    parsed_incorrectly = 0
+    # go through each goal statement 
+    for goal, plans in goals.items():
+        # for each 'how_i_did_it' story, which I call a 'plan'
+        for plan in plans:
+            parsed = {} 
+            # for each sentence in the plan (found earlier by a sentence segmenter) 
+            for sent in plan['plan']:
+                # parse the plan
+                parsed_sent = start_parse(' '.join(sent))
+                # see if it was parse-able
+                if len(parsed_sent.keys()) == 0:
+                    parsed_incorrectly += 1
+                else:
+                    parsed_correctly += 1
+                    # merge all the parse entries for the entire plan
+                    parsed.update(parsed_sent)
+                    # add all words (verbs?) with '+' inside to verb
+                    # frequency count
+                    for word in parsed_sent.keys():
+                        if word.count('+') != 0:
+                            verb_ct[word] += 1
+            # store the parse dictionary in the plan 
+            plan['parsed']= parsed
+    print verb_ct
+    print "Parsed ", parsed_correctly, " of ", parsed_incorrectly+parsed_correctly, " sentences "
+    if save:
+        print "Writing to file"
+        cPickle.dump(plan_statements,open('parsed_plans.pickle','wb'))
+        cPickle.dump(verb_ct,open('verb_count.pickle','wb'))
+    return [parsed_statements, verb_ct]
+
+
+def load_parsed_plan_statements(goals,force=False):
+    """ Opens the parsed plan statements pickle or creates a new one """
+    def parse_plans():
+        return parse_plan_statements(goals)
+    if force:
+        return parse_plans()
+    else:
+        try:
+            parsed_plans = cPickle.load(open('parse_plans.pickle','r'))
+            verb_ct = cPickle.load(open('verb_count.pickle','r'))
+            return [parsed_plans,verb_ct]
+        except:
+            return parse_plans()
+
+goals = cPickle.load(open('./plan_jar/plans.cornichon.pickle','r'))
+parsed_plan_satements, verb_ct = load_parsed_plan_statements(goals,force=False)
+
+def salient_plans(): 
+    mDur = min(filter(lambda x: x != 0, map(lambda y: y['duration'], goals[mGoal])))
+    verb_tfidf = defaultdict(float)  
+    verb_tf = defaultdict(int)
+    for plan in goals[mGoal]:
+        verbs = []
+        for sent in plan['plan']:
+            tagged_sent = pos_tag(sent)
+            verbs += filter(lambda x: x[1][0] == 'V', tagged_sent)
+        for verb in set(verbs):
+            # only count these once per plan
+            verb_tf[verb] +=1
+    for verb in verb_tf.keys():
+        verb_tfidf[verb] = (float(verb_tf[verb])/sum(verb_tf.values())/(float(verb_ct[verb])/sum(verb_ct.values())))
+    for k, v in sorted(verb_tfidf.items(),key=lambda x: x[1],reverse=True):
+        print k, v
+
+    print mGoal
+
+
+def parse_plan_statements2():
     file_num = 0
     categories = 0
-    goals = cPickle.load(open('./plan_jar/plans.cornichon.pickle','r'))
     for goal, plans in goals.items():
         goal = clean_statement(goal.lower())
         verb = goal.split()[0]
@@ -249,7 +326,7 @@ def parse_plan_statements():
             if graph.has_node(verb):
                 goal_graph.add_edges_from(graph.edges(graph.neighbors(verb),data=True),color=colors[relation],label=relation)
         nouns = get_nouns(pos_tag(goal.split())[1:])
-        
+        print goal 
         for alt_verb in goal_graph.nodes():
             # output sequence output file
             of = file('%s/%i' % (OUTPUT_DIR,file_num),'w')
@@ -260,6 +337,7 @@ def parse_plan_statements():
             index_file.write("%s/%i %i\n" % (OUTPUT_DIR,file_num,categories))
             file_num +=1
         categories +=1
+        if categories == 80: break
         #print plans
 
     kf = open("%s.keys" % (OUTPUT_DIR), "w")
@@ -268,5 +346,3 @@ def parse_plan_statements():
 
         #print len(plans)
 
-
-parse_plan_statements()
