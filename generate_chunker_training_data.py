@@ -86,9 +86,9 @@ def generate_training_data():
                     if not en.nl.is_stopword(t_toke[0]):
                         normalized_counter += 1
                         if '/' in t_toke[0] or '-' in t_toke[0]:
-                            print "ADVANCE"
-                            normalized_counter +=1
-                            1/0
+                            print "ADVANCE", t_toke[0]
+                            #normalized_counter +=1
+
                     print "%-20s%-10s%-10s" % (t_toke[0],t_toke[1],tag)
                     outFile.write("%-40s%-10s%-10s\n" % (t_toke[0],t_toke[1],tag))
 
