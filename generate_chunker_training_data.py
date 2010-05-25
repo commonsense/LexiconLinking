@@ -25,7 +25,7 @@ def generate_training_data():
     """
     RELATION_TYPES = { 'SUBEVENT': {'RELATIONS':"1,2,9,10,19", 'MIN':0},\
                        'PARTOF': {'RELATIONS':"21", 'MIN':4},\
-                       'LOCATION': {'RELATIONS':"6", "MIN":1},\
+                       'LOCATION': {'RELATIONS':"6", "MIN":3},\
                        'NEXTEVENT': {'RELATIONS':"7,18,17", 'MIN':0},\
                        'PREVEVENT': {'RELATIONS':"3",'MIN':0}}
 
@@ -42,8 +42,9 @@ def generate_training_data():
             for n_goal in n_goal_names:
                 concepts += map(lambda x: x.concept2.text, Assertion.objects.filter(concept2__text=n_goal,language=en,score__gte=data['MIN']).extra(where=["relation_id in (%s)" % data['RELATIONS']]))
             total += len(concepts)
+	    print concepts
             relations_for_goal[relation] = set(concepts)
-        if total*4 / float(len(all_plans[entry])) < 1: 
+        if total*8 / float(len(all_plans[entry])) < 1: 
             print "Skipping Goal", total, total*10/float(len(all_plans[entry])) # not enough knowledge about it
             continue
 
@@ -59,10 +60,10 @@ def generate_training_data():
                 sent =  ' '.join(sent)
                 for relation_type, concepts in relations_for_goal.items():
                     for concept in concepts:
-                        if "%s" % concept in sent:
-                            #print "Concept in sent", concept, "\\\\", relation_type, "\\\\", sent,"\\\\",  concept.split()[-1]
+                        if concept in sent:
+                            print "Concept in sent", concept, "\\\\", relation_type, "\\\\", sent,"\\\\",  concept.split()[-1]
                             # compute number of spaces between starting and ending position of the sentence 
-                            start_pos = len(sent[0:sent.index(concept)].split())
+                            start_pos = len(sent[0:sent.index(concept)-1].split())
                             end_pos = len(sent[0:sent.index(concept)+len(concept)-1].split())-1
                             begin_chunk[offset+start_pos] = relation_type
                             end_chunk[offset+end_pos] = relation_type
@@ -83,11 +84,7 @@ def generate_training_data():
                         default_chunk = "O"
                     else:
                         tag = default_chunk
-                    if not en.nl.is_stopword(t_toke[0]):
-                        normalized_counter += 1
-                        if '/' in t_toke[0] or '-' in t_toke[0]:
-                            print "ADVANCE", t_toke[0]
-                            #normalized_counter +=1
+                    normalized_counter += 1
 
                     print "%-20s%-10s%-10s" % (t_toke[0],t_toke[1],tag)
                     outFile.write("%-40s%-10s%-10s\n" % (t_toke[0],t_toke[1],tag))
